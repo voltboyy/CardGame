@@ -24,7 +24,11 @@ import javax.swing.JPanel;
 
 public class GamePanel extends JPanel implements Runnable{
 //random groene text...	
+
 	//Hehe
+
+	//nog meer gronee text...
+	
 	private InetAddress ipAdress;
 	
 	//This is needed for screen repainting, also known as double buffering
