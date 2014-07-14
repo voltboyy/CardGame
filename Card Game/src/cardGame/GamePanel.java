@@ -14,6 +14,7 @@ import java.awt.event.MouseEvent;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -22,6 +23,8 @@ import javax.swing.ImageIcon;
 import javax.swing.JPanel;
 
 public class GamePanel extends JPanel implements Runnable{
+	
+	private InetAddress ipAdress;
 	
 	//This is needed for screen repainting, also known as double buffering
 	private Image dbImage;
@@ -273,8 +276,9 @@ public class GamePanel extends JPanel implements Runnable{
             
         	//probably the most essential part of this entire class file
             try{
+            	this.ipAdress = InetAddress.getByName("localhost"); //You can remove this entirely and just type the string as far as I know, just tried this for debugging
     			System.out.println("Connecting...");
-    			socket = new Socket("localhost", 7777); //Connect to specific server using specified port
+    			socket = new Socket(ipAdress, 7777); //Connect to specific server using specified port
     			System.out.println("Connection succesful!");
     			in = new DataInputStream(socket.getInputStream());
     			playerid = in.readInt(); //Receiving id from server
