@@ -281,9 +281,10 @@ public class GamePanel extends JPanel implements Runnable{
             
         	//probably the most essential part of this entire class file
             try{
-            	this.ipAdress = InetAddress.getByName("localhost"); //You can remove this entirely and just type the string as far as I know, just tried this for debugging
-    			System.out.println("Connecting...");
-    			socket = new Socket(ipAdress, 7777); //Connect to specific server using specified port
+            	//InetAddress.getLocalHost().getHostAddress()
+            	this.ipAdress = InetAddress.getByName("94.226.250.203"); //You can remove this entirely and just type the string as far as I know, just tried this for debugging
+    			System.out.println("Connecting to " + ipAdress + " ...");
+    			socket = new Socket(ipAdress,49500); //Connect to specific server using specified port
     			System.out.println("Connection succesful!");
     			in = new DataInputStream(socket.getInputStream());
     			playerid = in.readInt(); //Receiving id from server
@@ -295,6 +296,7 @@ public class GamePanel extends JPanel implements Runnable{
                 game.start();
     		}catch(Exception e){
     			System.out.println("Unable to start client");
+    			System.out.println(e);
     		}
             running = true;
         }
@@ -316,9 +318,12 @@ public class GamePanel extends JPanel implements Runnable{
 	public void draw(Graphics g){
 		g.setColor(Color.GRAY);
         g.drawString("Options", 50, 50);
+        g.setColor(Color.RED);
 		for(int i = 0; i < 10; i++){
-			g.drawOval(x[i], y[i], 5, 5);
+			g.drawOval(x[i], y[i], 9, 9);
 		}
+		g.setColor(Color.GREEN);
+		g.drawOval(playerx + 2, playery + 2, 5, 5);
 	}
 	
 	//Toggled by pressing the "D" key, shows some usefull values to help debugging, add as much as you want
@@ -397,8 +402,6 @@ class Input implements Runnable{
 		this.client = c;
 	}
 	
-	//Separate class file, listens to all information received from server
-	//and send this to gamepanel class file.
 	public void run() {
 		while(true){
 			try {

@@ -1,1 +1,6 @@
 Game name set to: "Card Game"
+Basic client and server added
+Little orb moving game made in standalone for further testing
+After a long time of firewall adjusting and port forwarding, finally got connection to work over Internet
+Added two different circles, one for client coordinates and one for server, meant for debugging
+
