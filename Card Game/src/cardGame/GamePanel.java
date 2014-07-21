@@ -23,12 +23,8 @@ import javax.swing.ImageIcon;
 import javax.swing.JPanel;
 
 public class GamePanel extends JPanel implements Runnable{
-//random groene text...	
-
-	//Hehe
-
-	//nog meer gronee text...
 	
+	//This is needed for ipAdress configuration
 	private InetAddress ipAdress;
 	
 	//This is needed for screen repainting, also known as double buffering
@@ -48,15 +44,23 @@ public class GamePanel extends JPanel implements Runnable{
 	private long period = (long) (1*1000000); //ms -> nanoseconds
 	private static final int DELAYS_BEFORE_YIELD = 10;
 	
-	//booleans
-	boolean debug = false;
+	//Rectangles (x,y,width,height)
+	Rectangle connectButton = new Rectangle(GWIDTH/2 - 75, GHEIGHT/2 - 50, 150, 50);
+	Rectangle messageBox = new Rectangle(GWIDTH/2 - 100, GHEIGHT/2 - 75, 200, 75);
+	Rectangle closeBox = new Rectangle(GWIDTH - 25, 0, 20, 20);
 	
+	//booleans
+	boolean debug = false, connect = false, connected, connectionFailed;
+	boolean ConnectHover = false;
 	boolean left, down, right, up;
 	
 	//Global variables
 	static Socket socket;
 	static DataInputStream in;
 	static DataOutputStream out;
+	
+	//Number of clicks
+	int clicks = 0;
 	
 	//unique id that server sends to client
 	int playerid;
@@ -96,6 +100,12 @@ public class GamePanel extends JPanel implements Runnable{
 						debug = false;
 					else
 						debug = true;
+				}
+				if(e.getKeyCode() == KeyEvent.VK_C){
+					if(!connect){
+						connect = true;
+						Connect();
+					}
 				}
 				
 				if(e.getKeyCode() == KeyEvent.VK_LEFT){
@@ -145,28 +155,30 @@ public class GamePanel extends JPanel implements Runnable{
 		
 		while(true){ //"true" was "running", it works now but something might be broken now
 			
-			
-			if(right == true){
-				playerx += 1;
-			}
-			if(left == true){
-				playerx -= 1;
-			}
-			if(up == true){
-				playery -= 1;
-			}
-			if(down == true){
-				playery += 1;
-			}
-			if(right || left || up || down){ // "||" = of
-				try{
-					out.writeInt(playerid);
-					out.writeInt(playerx);
-					out.writeInt(playery);
-				}catch(Exception e){
-					System.out.println("Error sending Coordinates");
+			if(connected){
+				if(right == true){
+					playerx += 1;
+				}
+				if(left == true){
+					playerx -= 1;
+				}
+				if(up == true){
+					playery -= 1;
+				}
+				if(down == true){
+					playery += 1;
+				}
+				if(right || left || up || down){ // "||" = of
+					try{
+						out.writeInt(playerid);
+						out.writeInt(playerx);
+						out.writeInt(playery);
+					}catch(Exception e){
+						System.out.println("Error sending Coordinates");
+					}
 				}
 			}
+			
 			
 			
 			//A lot of bullshit that keeps game running on same speed but possibly with slower frame rate if pc is lagging
@@ -278,26 +290,10 @@ public class GamePanel extends JPanel implements Runnable{
 	
 	private void startGame(){
         if(game == null){ //removed something! Might cause bugs later! Remember!
-            
+            game = new Thread(this);
+            game.start();
         	//probably the most essential part of this entire class file
-            try{
-            	//InetAddress.getLocalHost().getHostAddress()
-            	this.ipAdress = InetAddress.getByName("94.226.250.203"); //You can remove this entirely and just type the string as far as I know, just tried this for debugging
-    			System.out.println("Connecting to " + ipAdress + " ...");
-    			socket = new Socket(ipAdress,49500); //Connect to specific server using specified port
-    			System.out.println("Connection succesful!");
-    			in = new DataInputStream(socket.getInputStream());
-    			playerid = in.readInt(); //Receiving id from server
-    			out = new DataOutputStream(socket.getOutputStream());
-    			Input input = new Input(in, this);
-    			threadinput = new Thread(input);
-    			threadinput.start();
-    			game = new Thread(this);
-                game.start();
-    		}catch(Exception e){
-    			System.out.println("Unable to start client");
-    			System.out.println(e);
-    		}
+            
             running = true;
         }
     }
@@ -309,21 +305,80 @@ public class GamePanel extends JPanel implements Runnable{
 		}
 	}
 	
+	private void Connect(){
+		if(connect){
+        	try{
+            	//InetAddress.getLocalHost().getHostAddress()
+            	this.ipAdress = InetAddress.getByName("94.226.250.203"); //You can remove this entirely and just type the string as far as I know, just tried this for debugging
+    			System.out.println("Connecting to " + ipAdress + " ...");
+    			socket = new Socket(ipAdress,49500); //Connect to specific server using specified port
+    			System.out.println("Connection succesful!");
+    			in = new DataInputStream(socket.getInputStream());
+    			playerid = in.readInt(); //Receiving id from server
+    			out = new DataOutputStream(socket.getOutputStream());
+    			Input input = new Input(in, this);
+    			threadinput = new Thread(input);
+    			threadinput.start();
+    			connected = true;
+    		}catch(Exception e){
+    			System.out.println("Unable to start client");
+    			System.out.println(e);
+    			connect = false;
+    			connectionFailed = true;
+    		}
+        }
+	}
+	
 	//Easier sending stuff to console
 	private void log(String s){
 		System.out.println(s);
 	}
 	
+	//Easier filling of rectangles
+	public void Fill(Rectangle box, Graphics g){//This fills the rectangle with your desired color
+		g.fillRect(box.x, box.y, box.width, box.height);
+	}
+	
 	//Draws content on screen!
 	public void draw(Graphics g){
-		g.setColor(Color.GRAY);
-        g.drawString("Options", 50, 50);
-        g.setColor(Color.RED);
-		for(int i = 0; i < 10; i++){
-			g.drawOval(x[i], y[i], 9, 9);
-		}
-		g.setColor(Color.GREEN);
-		g.drawOval(playerx + 2, playery + 2, 5, 5);
+        g.setFont(new Font("Arial", Font.BOLD, 14));
+		g.setColor(Color.WHITE);
+        if(!connect && !connectionFailed){
+    		if(ConnectHover)
+    			g.setColor(Color.LIGHT_GRAY);
+    		else{
+    			g.setColor(Color.GRAY);
+    		}
+    		Fill(connectButton, g);
+    		g.setFont(new Font("Arial", Font.BOLD, 14));
+    		g.setColor(Color.WHITE);
+    		g.drawString("Connect", connectButton.x + 45, connectButton.y + 30);
+        }
+        if(connect && !connected){
+        	g.setColor(Color.GRAY);
+        	Fill(messageBox, g);
+    		g.setFont(new Font("Arial", Font.BOLD, 14));
+    		g.setColor(Color.WHITE);
+    		g.drawString("Attempting to connect...", messageBox.x + 15, messageBox.y + 42);
+        }
+        if(connectionFailed){
+        	g.setColor(Color.GRAY);
+        	Fill(messageBox, g);
+    		g.setFont(new Font("Arial", Font.BOLD, 14));
+    		g.setColor(Color.RED);
+    		g.drawString("Connection Failed", messageBox.x + 28, messageBox.y + 42);
+    		g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
+    		g.drawString("X", closeBox.x, closeBox.y + 20);
+        }
+        if(connected){
+        	g.setColor(Color.RED);
+			for(int i = 0; i < 10; i++){
+				g.drawOval(x[i], y[i], 9, 9);
+			}
+			g.setColor(Color.GREEN);
+			g.drawOval(playerx + 2, playery + 2, 5, 5);
+        }
+        
 	}
 	
 	//Toggled by pressing the "D" key, shows some usefull values to help debugging, add as much as you want
@@ -332,6 +387,10 @@ public class GamePanel extends JPanel implements Runnable{
 		g.setColor(Color.MAGENTA);
 		g.drawString("y: " + playery, 0, GHEIGHT - 30);
 		g.drawString("x: " + playerx, 0, GHEIGHT - 42);
+		g.drawString("Clicks: " + clicks, 0, GHEIGHT - 54);
+		g.drawString("Connect: " + connect, 0, GHEIGHT - 66);
+		g.drawString("CHover: " + ConnectHover, 100, GHEIGHT - 30);
+		g.drawString("Connected: " + connected, 100, GHEIGHT - 42);
 		//g.drawString("Saved Coord: "+world1.getSavedX()+" "+world1.getSavedY(), 0, GHEIGHT - 30);
 		//g.drawString("Count: "+count, 0, GHEIGHT - 42);
 	}
@@ -352,17 +411,17 @@ public class GamePanel extends JPanel implements Runnable{
 			return false;
 	}
 	
-	//Easier filling of rectangles
-	public void fill(Rectangle box, Graphics g){//This fills the rectangle with your desired color
-		g.fillRect(box.x, box.y, box.width, box.height);
-	}
-	
 	//Ever wanted to do stuff with your mouse? Well you came to the rigth place! :p
 	public class MouseHandler extends MouseAdapter{
 		public void mouseMoved(MouseEvent e){
 			int mx = e.getX();
 			int my = e.getY();
-			
+			if(!connect){
+				if(hitBox(connectButton, mx, my))
+					ConnectHover = true;
+				else
+					ConnectHover = false;
+			}
 			/*if(hitBox(achievementGet, mx, my))
 				AchievementGetHover = true;
 			else
@@ -380,6 +439,22 @@ public class GamePanel extends JPanel implements Runnable{
 		public void mousePressed(MouseEvent e){
 			int mx = e.getX();
 			int my = e.getY();
+			if(mx > 0 && mx < GWIDTH &&
+					my > 0 && my < GWIDTH){
+					clicks++;
+			}
+			if(!connect && !connectionFailed){
+				if(hitBox(connectButton, mx, my)){
+					connect = true;
+					ConnectHover = false;
+					Connect();
+				}
+			}
+			if(connectionFailed){
+				if(hitBox(closeBox, mx, my)){
+					connectionFailed = false;
+				}
+			}
 		}
 		public void mouseReleased(MouseEvent e){
 			

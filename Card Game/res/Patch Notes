@@ -3,4 +3,8 @@ Basic client and server added
 Little orb moving game made in standalone for further testing
 After a long time of firewall adjusting and port forwarding, finally got connection to work over Internet
 Added two different circles, one for client coordinates and one for server, meant for debugging
+Bug: Once client fails to update another players coordinates, it stops updating its own and gets far behind => disconnects
+	If you keep on moving after this bug occurs your character freezes
+	Possible bugfix: putting a delay between updates serverside
+Added connect button, messagebox and closeButton
 

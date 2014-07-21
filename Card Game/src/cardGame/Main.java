@@ -3,6 +3,7 @@ package cardGame;
 import java.applet.Applet;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.io.*;
@@ -16,6 +17,10 @@ public class Main extends JFrame{
 	static int //deze twee heb ik gewoon overgenomen van ander programma, kunnen we nog volledig adjusten, don't worry :p
     GWIDTH = 32*21, //adjust second number
 	GHEIGHT = 32*18; //adjust second number
+	
+	//Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+	//double width = screenSize.getWidth();
+	//double height = screenSize.getHeight();
 
 	Dimension screenSize = new Dimension(GWIDTH, GHEIGHT);
 	
