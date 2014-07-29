@@ -16,6 +16,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -50,7 +51,7 @@ public class GamePanel extends JPanel implements Runnable{
 	Rectangle closeBox = new Rectangle(GWIDTH - 25, 0, 20, 20);
 	
 	//booleans
-	boolean debug = false, connect = false, connected, connectionFailed;
+	boolean debug = false, connect = false, connected, connectionFailed, local = false;
 	boolean ConnectHover = false;
 	boolean left, down, right, up;
 	
@@ -106,6 +107,25 @@ public class GamePanel extends JPanel implements Runnable{
 						connect = true;
 						Connect();
 					}
+				}
+				if(e.getKeyCode() == KeyEvent.VK_L){
+					if(local){
+						local = false;
+						try {
+							ipAdress = InetAddress.getByName("94.226.250.203");
+						} catch (UnknownHostException e1) {
+							System.out.println("Local key error:" + e1);
+						}
+					}
+					else{
+						local = true;
+						try {
+							ipAdress = InetAddress.getByName("localhost");
+						} catch (UnknownHostException e2) {
+							System.out.println("Local key error:" + e2);
+						}
+					}
+						
 				}
 				
 				if(e.getKeyCode() == KeyEvent.VK_LEFT){
@@ -309,7 +329,7 @@ public class GamePanel extends JPanel implements Runnable{
 		if(connect){
         	try{
             	//InetAddress.getLocalHost().getHostAddress()
-            	this.ipAdress = InetAddress.getByName("94.226.250.203"); //You can remove this entirely and just type the string as far as I know, just tried this for debugging
+            	//this.ipAdress = InetAddress.getByName("94.226.250.203"); //You can remove this entirely and just type the string as far as I know, just tried this for debugging
     			System.out.println("Connecting to " + ipAdress + " ...");
     			socket = new Socket(ipAdress,49500); //Connect to specific server using specified port
     			System.out.println("Connection succesful!");
@@ -391,6 +411,7 @@ public class GamePanel extends JPanel implements Runnable{
 		g.drawString("Connect: " + connect, 0, GHEIGHT - 66);
 		g.drawString("CHover: " + ConnectHover, 100, GHEIGHT - 30);
 		g.drawString("Connected: " + connected, 100, GHEIGHT - 42);
+		g.drawString("Local: " + local, 100, GHEIGHT - 54);
 		//g.drawString("Saved Coord: "+world1.getSavedX()+" "+world1.getSavedY(), 0, GHEIGHT - 30);
 		//g.drawString("Count: "+count, 0, GHEIGHT - 42);
 	}
