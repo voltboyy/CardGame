@@ -329,7 +329,7 @@ public class GamePanel extends JPanel implements Runnable{
 		if(connect){
         	try{
             	//InetAddress.getLocalHost().getHostAddress()
-            	//this.ipAdress = InetAddress.getByName("94.226.250.203"); //You can remove this entirely and just type the string as far as I know, just tried this for debugging
+            	this.ipAdress = InetAddress.getByName("94.226.250.203"); //You can remove this entirely and just type the string as far as I know, just tried this for debugging
     			System.out.println("Connecting to " + ipAdress + " ...");
     			socket = new Socket(ipAdress,49500); //Connect to specific server using specified port
     			System.out.println("Connection succesful!");
