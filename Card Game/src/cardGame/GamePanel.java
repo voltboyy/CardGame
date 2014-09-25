@@ -46,19 +46,31 @@ public class GamePanel extends JPanel implements Runnable{
 	private static final int DELAYS_BEFORE_YIELD = 10;
 	
 	//Rectangles (x,y,width,height)
-	Rectangle connectButton = new Rectangle(GWIDTH/2 - 75, GHEIGHT/2 - 50, 150, 50);
+	Rectangle connectButton = new Rectangle(GWIDTH - 200, GHEIGHT - 100, 150, 50);
 	Rectangle messageBox = new Rectangle(GWIDTH/2 - 100, GHEIGHT/2 - 75, 200, 75);
 	Rectangle closeBox = new Rectangle(GWIDTH - 25, 0, 20, 20);
+	Rectangle loginBox = new Rectangle(GWIDTH/2 - 150, GHEIGHT/2 - 200, 300, 400);
+	Rectangle usernameInput = new Rectangle(loginBox.x+15, loginBox.y+80, loginBox.width-30, 30);
+	Rectangle passwordInput = new Rectangle(loginBox.x+15, loginBox.y+230, loginBox.width-30, 30);
 	
 	//booleans
-	boolean debug = false, connect = false, connected, connectionFailed, local = false;
+	boolean debug = false, connect = false, connected, connectionFailed, local = false, usernameActive, passwordActive;
+	boolean pendingData;
 	boolean ConnectHover = false;
 	boolean left, down, right, up;
+	
+	//Strings
+	String username = "", password = "", passwordshown = "", rawusername = "", rawpassword = "";
+	String usernamechars[], passwordchars[];
 	
 	//Global variables
 	static Socket socket;
 	static DataInputStream in;
 	static DataOutputStream out;
+	
+	//Integers
+	int level = 1, count = 0, unumchars = 0, pnumchars = 0, maxchar = 25, currentKeyCode;
+	int dataTick = 10;
 	
 	//Number of clicks
 	int clicks = 0;
@@ -80,6 +92,9 @@ public class GamePanel extends JPanel implements Runnable{
 		addMouseListener(new MouseHandler());
 		addMouseMotionListener(new MouseHandler());
 		
+		usernamechars = new String[maxchar];
+		passwordchars = new String[maxchar];
+		
 		//Load Images
 		//arrowNextIdle = new ImageIcon(getClass().getResource("/ArrowNextIdle.png")).getImage();
 		
@@ -92,23 +107,40 @@ public class GamePanel extends JPanel implements Runnable{
 		setBackground(Color.DARK_GRAY);
 		setFocusable(true);
 		requestFocus(false);
+		setFocusTraversalKeysEnabled(false); //This makes sure that the tab key can be detected
 		
 		//Key presses and stuf are being tracked here
 		addKeyListener(new KeyAdapter(){
 			public void keyPressed(KeyEvent e){
-				if(e.getKeyCode() == KeyEvent.VK_D){
+				displayInfo(e, "KEY PRESSED: ");
+				
+				if(usernameActive){
+					Username(e);
+				}
+				if(passwordActive){
+					Password(e);
+				}
+				
+				if(e.getKeyCode() == KeyEvent.VK_TAB){
+					if(usernameActive){
+						usernameActive = false;
+						passwordActive = true;
+					}
+				}
+				
+				if(e.getKeyCode() == KeyEvent.VK_D && !usernameActive && !passwordActive){
 					if(debug)
 						debug = false;
 					else
 						debug = true;
 				}
-				if(e.getKeyCode() == KeyEvent.VK_C){
+				if(e.getKeyCode() == KeyEvent.VK_C && !usernameActive && !passwordActive){
 					if(!connect){
 						connect = true;
 						Connect();
 					}
 				}
-				if(e.getKeyCode() == KeyEvent.VK_L){
+				if(e.getKeyCode() == KeyEvent.VK_L && !usernameActive && !passwordActive){
 					if(local){
 						local = false;
 						try {
@@ -157,9 +189,127 @@ public class GamePanel extends JPanel implements Runnable{
 				}
 			}
 			
-			public void KeyTyped(KeyEvent e){
-				
+			public void KeyTyped(KeyEvent e){ //Doesn't work for some unknown reason, some focus shit problems
+				displayInfo(e, "KEY TYPED: ");
 			}
+			
+			protected void Username(KeyEvent e){
+				int keyCode = e.getKeyCode();
+				int modifiers = e.getModifiersEx();
+				if(keyCode >= 48 && keyCode <= 90 && unumchars < maxchar){ //All letters
+					if(modifiers == 64){ //UpperCase
+						username += KeyEvent.getKeyText(keyCode);
+						usernamechars[unumchars] = KeyEvent.getKeyText(keyCode);
+						unumchars++;
+					}else{ //LowerCase
+						rawusername = KeyEvent.getKeyText(keyCode);
+						rawusername = rawusername.toLowerCase();
+						username += rawusername;
+						usernamechars[unumchars] = rawusername;
+						unumchars++;
+					}
+				}else if(keyCode >= 96 && keyCode <= 105 && unumchars < maxchar){ //Numpad
+					currentKeyCode = keyCode - 96;
+					username += currentKeyCode;
+					usernamechars[unumchars] = ""+currentKeyCode;
+					unumchars++;
+				}else if(keyCode == 8 && unumchars > 0){ //Backspace
+					unumchars--;
+					username = "";
+					for(int i = 0; i < unumchars; i++){
+						username += usernamechars[i];
+					}
+				}
+			}
+			protected void Password(KeyEvent e){
+				int keyCode = e.getKeyCode();
+				int modifiers = e.getModifiersEx();
+				if(keyCode >= 48 && keyCode <= 90 && pnumchars < maxchar){ //All letters
+					if(modifiers == 64){ //UpperCase
+						password += KeyEvent.getKeyText(keyCode);
+						passwordchars[pnumchars] = KeyEvent.getKeyText(keyCode);
+						pnumchars++;
+						PasswordAsterisk();
+					}else{ //LowerCase
+						rawpassword = KeyEvent.getKeyText(keyCode);
+						rawpassword = rawpassword.toLowerCase();
+						password += rawpassword;
+						passwordchars[pnumchars] = rawpassword;
+						pnumchars++;
+						PasswordAsterisk();
+					}
+				}else if(keyCode >= 96 && keyCode <= 105 && pnumchars < maxchar){ //Numpad
+					currentKeyCode = keyCode - 96;
+					password += currentKeyCode;
+					passwordchars[pnumchars] = ""+currentKeyCode;
+					pnumchars++;
+					PasswordAsterisk();
+				}else if(keyCode == 8 && pnumchars > 0){ //Backspace
+					pnumchars--;
+					password = "";
+					for(int i = 0; i < pnumchars; i++){
+						password += passwordchars[i];
+					}
+					PasswordRemoveAsterisk();
+				}
+			}
+			protected void PasswordAsterisk(){
+				passwordshown += "* ";
+			}
+			protected void PasswordRemoveAsterisk(){
+				passwordshown = "";
+				for(int i = 0; i < pnumchars; i++){
+					passwordshown += "* ";
+				}
+			}
+			
+			protected void displayInfo(KeyEvent e, String s) {
+		        String keyString, modString, tmpString, actionString, locationString;
+		        int id = e.getID();
+		        if (id == KeyEvent.KEY_TYPED) {
+		        	char c = e.getKeyChar();
+		        	keyString = "key character = '" + c + "'";
+		        } else {
+		        	int keyCode = e.getKeyCode();
+		        	keyString = "key code = " + keyCode + " (" + KeyEvent.getKeyText(keyCode) + ")";
+		        }
+
+		        int modifiers = e.getModifiersEx();
+		        modString = "modifiers = " + modifiers;
+		        tmpString = KeyEvent.getModifiersExText(modifiers);
+		        if (tmpString.length() > 0) {
+		        	modString += " (" + tmpString + ")";
+		        } else {
+		        	modString += " (no modifiers)";
+		        }
+
+		        actionString = "action key? ";
+		        if (e.isActionKey()) {
+		        	actionString += "YES";
+		        } else {
+		        	actionString += "NO";
+		        }
+
+		        locationString = "key location: ";
+		        int location = e.getKeyLocation();
+		        if (location == KeyEvent.KEY_LOCATION_STANDARD) {
+		        	locationString += "standard";
+		        } else if (location == KeyEvent.KEY_LOCATION_LEFT) {
+		        	locationString += "left";
+		        } else if (location == KeyEvent.KEY_LOCATION_RIGHT) {
+		        	locationString += "right";
+		        } else if (location == KeyEvent.KEY_LOCATION_NUMPAD) {
+		        	locationString += "numpad";
+		        } else { // (location == KeyEvent.KEY_LOCATION_UNKNOWN)
+		        	locationString += "unknown";
+		        }
+
+		        System.out.println(keyString);
+		        System.out.println(modString);
+		        System.out.println(actionString);
+		        System.out.println(locationString);
+			}
+			
 		});		
 	}
 	
@@ -188,14 +338,20 @@ public class GamePanel extends JPanel implements Runnable{
 				if(down == true){
 					playery += 1;
 				}
-				if(right || left || up || down){ // "||" = of
-					try{
-						out.writeInt(playerid);
-						out.writeInt(playerx);
-						out.writeInt(playery);
-					}catch(Exception e){
-						System.out.println("Error sending Coordinates");
+				if(right || left || up || down || pendingData){ // "||" = of
+					pendingData = true;
+					if(count>dataTick){
+						count = 0;
+						pendingData = false;
+						try{
+							out.writeInt(playerid);
+							out.writeInt(playerx);
+							out.writeInt(playery);
+						}catch(Exception e){
+							System.out.println("Error sending Coordinates");
+						}
 					}
+					
 				}
 			}
 			
@@ -251,6 +407,7 @@ public class GamePanel extends JPanel implements Runnable{
 	//This method keeps the game running.
 	private void gameUpdate(){
 		if(game != null){ //! removed a part here, always check here for a possible fix!
+			Counter();
 			//update game state
 			//if(level == 30){
 			//world1.moveMap();
@@ -325,6 +482,13 @@ public class GamePanel extends JPanel implements Runnable{
 		}
 	}
 	
+	private void Counter(){
+		if(count >200)
+			count = 100;
+		else
+			count++;
+	}
+	
 	private void Connect(){
 		if(connect){
         	try{
@@ -361,43 +525,63 @@ public class GamePanel extends JPanel implements Runnable{
 	
 	//Draws content on screen!
 	public void draw(Graphics g){
-        g.setFont(new Font("Arial", Font.BOLD, 14));
-		g.setColor(Color.WHITE);
-        if(!connect && !connectionFailed){
-    		if(ConnectHover)
-    			g.setColor(Color.LIGHT_GRAY);
-    		else{
-    			g.setColor(Color.GRAY);
-    		}
-    		Fill(connectButton, g);
-    		g.setFont(new Font("Arial", Font.BOLD, 14));
-    		g.setColor(Color.WHITE);
-    		g.drawString("Connect", connectButton.x + 45, connectButton.y + 30);
-        }
-        if(connect && !connected){
-        	g.setColor(Color.GRAY);
-        	Fill(messageBox, g);
-    		g.setFont(new Font("Arial", Font.BOLD, 14));
-    		g.setColor(Color.WHITE);
-    		g.drawString("Attempting to connect...", messageBox.x + 15, messageBox.y + 42);
-        }
-        if(connectionFailed){
-        	g.setColor(Color.GRAY);
-        	Fill(messageBox, g);
-    		g.setFont(new Font("Arial", Font.BOLD, 14));
-    		g.setColor(Color.RED);
-    		g.drawString("Connection Failed", messageBox.x + 28, messageBox.y + 42);
-    		g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
-    		g.drawString("X", closeBox.x, closeBox.y + 20);
-        }
-        if(connected){
-        	g.setColor(Color.RED);
-			for(int i = 0; i < 10; i++){
-				g.drawOval(x[i], y[i], 9, 9);
-			}
-			g.setColor(Color.GREEN);
-			g.drawOval(playerx + 2, playery + 2, 5, 5);
-        }
+		switch(level){
+		case 1:
+			g.setFont(new Font("Arial", Font.BOLD, 14));
+			g.setColor(Color.WHITE);
+	        if(!connect && !connectionFailed){
+	        	g.setColor(Color.GRAY);
+	        	Fill(loginBox, g);
+	        	g.setColor(Color.LIGHT_GRAY);
+	        	Fill(usernameInput, g);
+	        	g.setColor(Color.LIGHT_GRAY);
+	        	Fill(passwordInput, g);
+	        	g.setColor(Color.WHITE);
+	        	g.drawString(username, usernameInput.x + 5, usernameInput.y + 19);
+	        	g.drawString(passwordshown, passwordInput.x + 5, passwordInput.y + 22);
+	        	g.setFont(new Font("Arial", Font.BOLD, 14));
+				g.setColor(Color.BLACK);
+				g.drawString("Username:", usernameInput.x, usernameInput.y - 5);
+				g.drawString("Password:", passwordInput.x, passwordInput.y - 5);
+	    		if(ConnectHover)
+	    			g.setColor(Color.LIGHT_GRAY);
+	    		else{
+	    			g.setColor(Color.GRAY);
+	    		}
+	    		Fill(connectButton, g);
+	    		g.setFont(new Font("Arial", Font.BOLD, 14));
+	    		g.setColor(Color.WHITE);
+	    		g.drawString("Connect", connectButton.x + 45, connectButton.y + 30);
+	        }
+	        if(connect && !connected){
+	        	g.setColor(Color.GRAY);
+	        	Fill(messageBox, g);
+	    		g.setFont(new Font("Arial", Font.BOLD, 14));
+	    		g.setColor(Color.WHITE);
+	    		g.drawString("Attempting to connect...", messageBox.x + 15, messageBox.y + 42);
+	        }
+	        if(connectionFailed){
+	        	g.setColor(Color.GRAY);
+	        	Fill(messageBox, g);
+	    		g.setFont(new Font("Arial", Font.BOLD, 14));
+	    		g.setColor(Color.RED);
+	    		g.drawString("Connection Failed", messageBox.x + 28, messageBox.y + 42);
+	    		g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
+	    		g.drawString("X", closeBox.x, closeBox.y + 20);
+	        }
+	        if(connected){
+	        	g.setColor(Color.RED);
+				for(int i = 0; i < 10; i++){
+					g.drawOval(x[i], y[i], 9, 9);
+				}
+				g.setColor(Color.GREEN);
+				g.drawOval(playerx + 2, playery + 2, 5, 5);
+	        }
+			break;
+		case 2:
+			break;
+		}
+        
         
 	}
 	
@@ -412,6 +596,13 @@ public class GamePanel extends JPanel implements Runnable{
 		g.drawString("CHover: " + ConnectHover, 100, GHEIGHT - 30);
 		g.drawString("Connected: " + connected, 100, GHEIGHT - 42);
 		g.drawString("Local: " + local, 100, GHEIGHT - 54);
+		g.drawString("#username: " + unumchars, 100, GHEIGHT - 66);
+		g.drawString("usernA: " + usernameActive, 200, GHEIGHT - 30);
+		g.drawString("passwA: " + passwordActive, 200, GHEIGHT - 42);
+		g.drawString("Count: " + count, 200, GHEIGHT - 54);
+		g.drawString("Username: " + username, 300, GHEIGHT - 30);
+		g.drawString("Password: " + password, 300, GHEIGHT - 42);
+		g.drawString("PassShown: " + passwordshown, 300, GHEIGHT - 54);
 		//g.drawString("Saved Coord: "+world1.getSavedX()+" "+world1.getSavedY(), 0, GHEIGHT - 30);
 		//g.drawString("Count: "+count, 0, GHEIGHT - 42);
 	}
@@ -463,6 +654,7 @@ public class GamePanel extends JPanel implements Runnable{
 			if(mx > 0 && mx < GWIDTH &&
 					my > 0 && my < GWIDTH){
 					clicks++;
+					requestFocusInWindow();
 			}
 			if(!connect && !connectionFailed){
 				if(hitBox(connectButton, mx, my)){
@@ -475,6 +667,15 @@ public class GamePanel extends JPanel implements Runnable{
 				if(hitBox(closeBox, mx, my)){
 					connectionFailed = false;
 				}
+			}
+			if(hitBox(usernameInput, mx, my)){
+				usernameActive = true; passwordActive = false;
+			}
+			else if(hitBox(passwordInput, mx, my)){
+				passwordActive = true; usernameActive= false;
+			}
+			else{
+				usernameActive= false; passwordActive = false;
 			}
 		}
 		public void mouseReleased(MouseEvent e){

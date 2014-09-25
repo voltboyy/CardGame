@@ -15,8 +15,8 @@ import javax.swing.JFrame;
 public class Main extends JFrame{
 	
 	static int //deze twee heb ik gewoon overgenomen van ander programma, kunnen we nog volledig adjusten, don't worry :p
-    GWIDTH = 32*21, //adjust second number
-	GHEIGHT = 32*18; //adjust second number
+    GWIDTH = 32*33, //adjust second number
+	GHEIGHT = 32*24; //adjust second number
 	
 	//Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
 	//double width = screenSize.getWidth();
@@ -37,7 +37,7 @@ public class Main extends JFrame{
 	//Main method with some basic settings, not too hard
 	public Main() {
 		gp = new GamePanel();
-		setTitle("Card Game");
+		setTitle("Client");
 		setSize(screenSize);
 		setResizable(false);
 		setVisible(true);
