@@ -11,15 +11,34 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.Writer;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.KeySpec;
+import java.sql.*;
+import java.util.Arrays;
+import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 import javax.swing.ImageIcon;
 import javax.swing.JPanel;
 
@@ -58,10 +77,14 @@ public class GamePanel extends JPanel implements Runnable{
 	boolean pendingData;
 	boolean ConnectHover = false;
 	boolean left, down, right, up;
+	boolean capsOn = Toolkit.getDefaultToolkit().getLockingKeyState(KeyEvent.VK_CAPS_LOCK);
+
+	byte[] salt, encrpass;
 	
 	//Strings
 	String username = "", password = "", passwordshown = "", rawusername = "", rawpassword = "";
 	String usernamechars[], passwordchars[];
+	String salttext, encrpasstext;
 	
 	//Global variables
 	static Socket socket;
@@ -69,7 +92,7 @@ public class GamePanel extends JPanel implements Runnable{
 	static DataOutputStream out;
 	
 	//Integers
-	int level = 1, count = 0, unumchars = 0, pnumchars = 0, maxchar = 25, currentKeyCode;
+	int level = 1, count = 0, unumchars = 0, pnumchars = 0, maxchar = 20, currentKeyCode;
 	int dataTick = 10;
 	
 	//Number of clicks
@@ -95,6 +118,12 @@ public class GamePanel extends JPanel implements Runnable{
 		usernamechars = new String[maxchar];
 		passwordchars = new String[maxchar];
 		
+		try {
+			ipAdress = InetAddress.getByName("94.226.250.203");
+		} catch (UnknownHostException e1) {
+			System.out.println("Error first ip launch: " + e1);
+		}
+		
 		//Load Images
 		//arrowNextIdle = new ImageIcon(getClass().getResource("/ArrowNextIdle.png")).getImage();
 		
@@ -112,6 +141,7 @@ public class GamePanel extends JPanel implements Runnable{
 		//Key presses and stuf are being tracked here
 		addKeyListener(new KeyAdapter(){
 			public void keyPressed(KeyEvent e){
+				capsOn = Toolkit.getDefaultToolkit().getLockingKeyState(KeyEvent.VK_CAPS_LOCK);
 				displayInfo(e, "KEY PRESSED: ");
 				
 				if(usernameActive){
@@ -127,7 +157,44 @@ public class GamePanel extends JPanel implements Runnable{
 						passwordActive = true;
 					}
 				}
-				
+				if(e.getKeyCode() == KeyEvent.VK_F1){
+					try {
+						salt = generateSalt();
+						FileOutputStream fos = new FileOutputStream("C:/Users/Junior/Desktop/ServerData/"+username+"-salt.dat");
+						fos.write(salt);
+						fos.close();
+					} catch (NoSuchAlgorithmException | IOException e1) {
+						e1.printStackTrace();
+					}
+				}
+				if(e.getKeyCode() == KeyEvent.VK_F2){
+					try {
+						byte[] saltbytes = Files.readAllBytes(Paths.get("C:/Users/Junior/Desktop/ServerData/"+username+"-salt.dat"));
+						encrpass = getEncryptedPassword(password, saltbytes);
+						FileOutputStream fos = new FileOutputStream("C:/Users/Junior/Desktop/ServerData/"+username+"-pass.dat");
+						fos.write(encrpass);
+						fos.close();
+					} catch (FileNotFoundException e2) {
+						e2.printStackTrace();
+					} catch (NoSuchAlgorithmException | InvalidKeySpecException e1) {
+						e1.printStackTrace();
+					} catch (IOException e1) {
+						e1.printStackTrace();
+					}
+					encrpasstext = new String(encrpass);
+					System.out.println(encrpass+" --> "+encrpasstext);
+				}
+				if(e.getKeyCode() == KeyEvent.VK_F3){
+					try {
+						if(authenticate(password, encrpass, salt)){
+							System.out.println("true");
+						}else
+							System.out.println("nope");
+					} catch (NoSuchAlgorithmException | InvalidKeySpecException e1) {
+						e1.printStackTrace();
+					}
+					
+				}
 				if(e.getKeyCode() == KeyEvent.VK_D && !usernameActive && !passwordActive){
 					if(debug)
 						debug = false;
@@ -192,21 +259,147 @@ public class GamePanel extends JPanel implements Runnable{
 			public void KeyTyped(KeyEvent e){ //Doesn't work for some unknown reason, some focus shit problems
 				displayInfo(e, "KEY TYPED: ");
 			}
+			public String CheckSpecialCharacter(int keyCode, int modifiers){
+				String output = null;
+				if(modifiers == 0){
+					switch(keyCode){
+					case 44:
+						output = ",";
+						break;
+					case 45:
+						output = "-";
+						break;
+					case 48:
+						output = "à";
+						break;
+					case 49:
+						output = "&";
+						break;
+					case 50:
+						output = "é";
+						break;
+					case 51:
+						output = "\"";
+						break;
+					case 52:
+						output = "'";
+						break;
+					case 53:
+						output = "(";
+						break;
+					case 54:
+						output = "§";
+						break;
+					case 55:
+						output = "è";
+						break;
+					case 56:
+						output = "!";
+						break;
+					case 57:
+						output = "ç";
+						break;
+					case 59:
+						output = ";";
+						break;
+					case 61:
+						output = "=";
+						break;
+					case 130:
+						output = "^";
+						break;
+					case 153:
+						output = "<";
+						break;
+					case 513:
+						output = ":";
+						break;
+					case 515:
+						output = "$";
+						break;
+					case 522:
+						output = ")";
+						break;
+					}
+				}else if(modifiers == 64){
+					switch(keyCode){
+					case 44:
+						output = "?";
+						break;
+					case 45:
+						output = "_";
+						break;
+					case 59:
+						output = ".";
+						break;
+					case 61:
+						output = "+";
+						break;
+					case 153:
+						output = ">";
+						break;
+					case 513:
+						output = "/";
+						break;
+					case 515:
+						output = "*";
+						break;
+					case 522:
+						output = "°";
+						break;
+					}
+				}else if(modifiers == 640){
+					switch(keyCode){
+					case 48:
+						output = "}";
+						break;
+					case 49:
+						output = "|";
+						break;
+					case 50:
+						output = "@";
+						break;
+					case 51:
+						output = "#";
+						break;
+					case 57:
+						output = "{";
+						break;
+					case 61:
+						output = "~";
+						break;
+					case 130:
+						output = "[";
+						break;
+					case 153:
+						output = "\\";
+						break;
+					case 515:
+						output = "]";
+						break;
+					}
+				}
+				return output;
+			}
 			
 			protected void Username(KeyEvent e){
 				int keyCode = e.getKeyCode();
 				int modifiers = e.getModifiersEx();
-				if(keyCode >= 48 && keyCode <= 90 && unumchars < maxchar){ //All letters
-					if(modifiers == 64){ //UpperCase
+				if(keyCode >= 48 && keyCode <= 90 && keyCode != 59 && keyCode !=61 && unumchars < maxchar){ //All letters
+					if(modifiers == 64 | capsOn){ //UpperCase
 						username += KeyEvent.getKeyText(keyCode);
 						usernamechars[unumchars] = KeyEvent.getKeyText(keyCode);
 						unumchars++;
 					}else{ //LowerCase
-						rawusername = KeyEvent.getKeyText(keyCode);
-						rawusername = rawusername.toLowerCase();
-						username += rawusername;
-						usernamechars[unumchars] = rawusername;
-						unumchars++;
+						if(keyCode >= 48 && keyCode <= 57){
+							
+						}else{
+							rawusername = KeyEvent.getKeyText(keyCode);
+							rawusername = rawusername.toLowerCase();
+							username += rawusername;
+							usernamechars[unumchars] = rawusername;
+							unumchars++;
+						}
 					}
 				}else if(keyCode >= 96 && keyCode <= 105 && unumchars < maxchar){ //Numpad
 					currentKeyCode = keyCode - 96;
@@ -224,19 +417,29 @@ public class GamePanel extends JPanel implements Runnable{
 			protected void Password(KeyEvent e){
 				int keyCode = e.getKeyCode();
 				int modifiers = e.getModifiersEx();
-				if(keyCode >= 48 && keyCode <= 90 && pnumchars < maxchar){ //All letters
-					if(modifiers == 64){ //UpperCase
+				if(keyCode >= 48 && keyCode <= 90 && keyCode != 59 && keyCode !=61 && pnumchars < maxchar){ //All letters
+					if(modifiers == 64 | capsOn){ //UpperCase
 						password += KeyEvent.getKeyText(keyCode);
 						passwordchars[pnumchars] = KeyEvent.getKeyText(keyCode);
 						pnumchars++;
 						PasswordAsterisk();
 					}else{ //LowerCase
-						rawpassword = KeyEvent.getKeyText(keyCode);
-						rawpassword = rawpassword.toLowerCase();
-						password += rawpassword;
-						passwordchars[pnumchars] = rawpassword;
-						pnumchars++;
-						PasswordAsterisk();
+						if(keyCode >= 48 && keyCode <= 57){
+							rawpassword = CheckSpecialCharacter(keyCode, modifiers);
+							if(rawpassword != null){
+								password += rawpassword;
+								passwordchars[pnumchars] = rawpassword;
+								pnumchars++;
+								PasswordAsterisk();
+							}
+						}else{
+							rawpassword = KeyEvent.getKeyText(keyCode);
+							rawpassword = rawpassword.toLowerCase();
+							password += rawpassword;
+							passwordchars[pnumchars] = rawpassword;
+							pnumchars++;
+							PasswordAsterisk();
+						}
 					}
 				}else if(keyCode >= 96 && keyCode <= 105 && pnumchars < maxchar){ //Numpad
 					currentKeyCode = keyCode - 96;
@@ -251,6 +454,16 @@ public class GamePanel extends JPanel implements Runnable{
 						password += passwordchars[i];
 					}
 					PasswordRemoveAsterisk();
+				}else{
+					if(pnumchars < maxchar){
+						rawpassword = CheckSpecialCharacter(keyCode, modifiers);
+						if(rawpassword != null){
+							password += rawpassword;
+							passwordchars[pnumchars] = rawpassword;
+							pnumchars++;
+							PasswordAsterisk();
+						}
+					}	
 				}
 			}
 			protected void PasswordAsterisk(){
@@ -311,6 +524,42 @@ public class GamePanel extends JPanel implements Runnable{
 			}
 			
 		});		
+	}
+	
+	
+	public boolean authenticate(String attemptedPassword, byte[] encryptedPassword, byte[] salt) throws NoSuchAlgorithmException, InvalidKeySpecException {
+		// Encrypt the clear-text password using the same salt that was used to
+		// encrypt the original password
+		byte[] encryptedAttemptedPassword = getEncryptedPassword(attemptedPassword, salt);
+		// Authentication succeeds if encrypted password that the user entered
+		// is equal to the stored hash
+		return Arrays.equals(encryptedPassword, encryptedAttemptedPassword);
+	}
+	////This part is about encrypting the password
+	public byte[] getEncryptedPassword(String password, byte[] salt)
+	throws NoSuchAlgorithmException, InvalidKeySpecException {
+		// PBKDF2 with SHA-1 as the hashing algorithm. Note that the NIST
+		// specifically names SHA-1 as an acceptable hashing algorithm for PBKDF2
+		String algorithm = "PBKDF2WithHmacSHA1";
+		// SHA-1 generates 160 bit hashes, so that's what makes sense here
+		int derivedKeyLength = 160;
+		// Pick an iteration count that works for you. The NIST recommends at
+		// least 1,000 iterations:
+		// http://csrc.nist.gov/publications/nistpubs/800-132/nist-sp800-132.pdf
+		// iOS 4.x reportedly uses 10,000:
+		// http://blog.crackpassword.com/2010/09/smartphone-forensics-cracking-blackberry-backup-passwords/
+		int iterations = 20000;
+		KeySpec spec = new PBEKeySpec(password.toCharArray(), salt, iterations, derivedKeyLength);
+		SecretKeyFactory f = SecretKeyFactory.getInstance(algorithm);
+		return f.generateSecret(spec).getEncoded();
+	}
+	public byte[] generateSalt() throws NoSuchAlgorithmException {
+		// VERY important to use SecureRandom instead of just Random
+		SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
+		// Generate a 8 byte (64 bit) salt as recommended by RSA PKCS5
+		byte[] salt = new byte[8];
+		random.nextBytes(salt);
+		return salt;
 	}
 	
 	//This is the main method that controls how the game runs.
@@ -493,22 +742,40 @@ public class GamePanel extends JPanel implements Runnable{
 		if(connect){
         	try{
             	//InetAddress.getLocalHost().getHostAddress()
-            	this.ipAdress = InetAddress.getByName("94.226.250.203"); //You can remove this entirely and just type the string as far as I know, just tried this for debugging
+            	//this.ipAdress = InetAddress.getByName("94.226.250.203"); //You can remove this entirely and just type the string as far as I know, just tried this for debugging
     			System.out.println("Connecting to " + ipAdress + " ...");
     			socket = new Socket(ipAdress,49500); //Connect to specific server using specified port
     			System.out.println("Connection succesful!");
     			in = new DataInputStream(socket.getInputStream());
     			playerid = in.readInt(); //Receiving id from server
+    			System.out.println(playerid);
     			out = new DataOutputStream(socket.getOutputStream());
-    			Input input = new Input(in, this);
-    			threadinput = new Thread(input);
-    			threadinput.start();
-    			connected = true;
+    			out.writeUTF(username);
+    			out.writeUTF(password);
+    			out.writeInt(playerid);
+    			pnumchars = 0;
+    			password = "";
+    			passwordshown = "";
+    			if(in.readBoolean()){
+    				playerid = in.readInt();
+	    			Input input = new Input(in, this);
+	    			threadinput = new Thread(input);
+	    			threadinput.start();
+	    			connected = true;
+    			}
+    			else{
+    				connect = false;
+        			connectionFailed = true;
+    			}
+    			
     		}catch(Exception e){
     			System.out.println("Unable to start client");
     			System.out.println(e);
     			connect = false;
     			connectionFailed = true;
+    			pnumchars = 0;
+    			password = "";
+    			passwordshown = "";
     		}
         }
 	}
@@ -521,6 +788,14 @@ public class GamePanel extends JPanel implements Runnable{
 	//Easier filling of rectangles
 	public void Fill(Rectangle box, Graphics g){//This fills the rectangle with your desired color
 		g.fillRect(box.x, box.y, box.width, box.height);
+	}
+	
+	public void messagebox(Graphics g, String str, int xoffset, int yoffset, Color box, Color text){
+		g.setColor(box);
+    	Fill(messageBox, g);
+		g.setFont(new Font("Arial", Font.BOLD, 14));
+		g.setColor(text);
+		g.drawString(str, messageBox.x + xoffset, messageBox.y + yoffset);
 	}
 	
 	//Draws content on screen!
@@ -554,18 +829,10 @@ public class GamePanel extends JPanel implements Runnable{
 	    		g.drawString("Connect", connectButton.x + 45, connectButton.y + 30);
 	        }
 	        if(connect && !connected){
-	        	g.setColor(Color.GRAY);
-	        	Fill(messageBox, g);
-	    		g.setFont(new Font("Arial", Font.BOLD, 14));
-	    		g.setColor(Color.WHITE);
-	    		g.drawString("Attempting to connect...", messageBox.x + 15, messageBox.y + 42);
+	        	messagebox(g, "Attempting to connect...", 15, 42, Color.GRAY, Color.WHITE);
 	        }
 	        if(connectionFailed){
-	        	g.setColor(Color.GRAY);
-	        	Fill(messageBox, g);
-	    		g.setFont(new Font("Arial", Font.BOLD, 14));
-	    		g.setColor(Color.RED);
-	    		g.drawString("Connection Failed", messageBox.x + 28, messageBox.y + 42);
+	        	messagebox(g, "Connection Failed", 28, 42, Color.GRAY, Color.RED);
 	    		g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
 	    		g.drawString("X", closeBox.x, closeBox.y + 20);
 	        }
@@ -600,6 +867,7 @@ public class GamePanel extends JPanel implements Runnable{
 		g.drawString("usernA: " + usernameActive, 200, GHEIGHT - 30);
 		g.drawString("passwA: " + passwordActive, 200, GHEIGHT - 42);
 		g.drawString("Count: " + count, 200, GHEIGHT - 54);
+		g.drawString("Caps: " + capsOn, 200, GHEIGHT - 66);
 		g.drawString("Username: " + username, 300, GHEIGHT - 30);
 		g.drawString("Password: " + password, 300, GHEIGHT - 42);
 		g.drawString("PassShown: " + passwordshown, 300, GHEIGHT - 54);

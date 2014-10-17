@@ -8,3 +8,13 @@ Bug: Once client fails to update another players coordinates, it stops updating 
 	Possible bugfix: putting a delay between updates serverside
 Added connect button, messagebox and closeButton
 
+---v1.05---
+Massive update on client and server
+Input boxes have been coded and are working
+Logging in with registered username and password is possible now
+Password is encrypted together with salt to ensure safety
+Entered password is "forgotten" once you try connecting, all for safety
+Username can only exist out of letters and numbers
+Password can exist out of most characters but the special characters aren't really working yet with qwerty
+Updating bug has been fixed by delaying updates client side, this might have to be applied serverside
+Playerid's are correctly opened up again when somebody disconnects
