@@ -106,8 +106,8 @@ public class GamePanel extends JPanel implements Runnable{
 	int playery;
 	
 	//server coordinates van andere ids
-	int[] x = new int[10];
-	int[] y = new int[10];
+	int[] x = new int[100];
+	int[] y = new int[100];
 	
 	//Main method of this class file
 	public GamePanel(){
@@ -747,12 +747,9 @@ public class GamePanel extends JPanel implements Runnable{
     			socket = new Socket(ipAdress,49500); //Connect to specific server using specified port
     			System.out.println("Connection succesful!");
     			in = new DataInputStream(socket.getInputStream());
-    			playerid = in.readInt(); //Receiving id from server
-    			System.out.println(playerid);
     			out = new DataOutputStream(socket.getOutputStream());
     			out.writeUTF(username);
     			out.writeUTF(password);
-    			out.writeInt(playerid);
     			pnumchars = 0;
     			password = "";
     			passwordshown = "";
@@ -762,8 +759,7 @@ public class GamePanel extends JPanel implements Runnable{
 	    			threadinput = new Thread(input);
 	    			threadinput.start();
 	    			connected = true;
-    			}
-    			else{
+    			}else{
     				connect = false;
         			connectionFailed = true;
     			}
@@ -838,7 +834,7 @@ public class GamePanel extends JPanel implements Runnable{
 	        }
 	        if(connected){
 	        	g.setColor(Color.RED);
-				for(int i = 0; i < 10; i++){
+				for(int i = 0; i < 100; i++){
 					g.drawOval(x[i], y[i], 9, 9);
 				}
 				g.setColor(Color.GREEN);

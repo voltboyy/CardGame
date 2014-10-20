@@ -18,3 +18,7 @@ Username can only exist out of letters and numbers
 Password can exist out of most characters but the special characters aren't really working yet with qwerty
 Updating bug has been fixed by delaying updates client side, this might have to be applied serverside
 Playerid's are correctly opened up again when somebody disconnects
+Bug: Client doesn't receive information regarding the location and data from other players
+	Bug seems to be serverside
+	Bugfix: stripped server file from unnecessary information and merged two threads into 1
+Note: Threadception breaks stuff
