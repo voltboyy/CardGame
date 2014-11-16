@@ -970,7 +970,7 @@ public class GamePanel extends JPanel implements Runnable{
 	    		Fill(connectButton, g);
 	    		g.setFont(new Font("Arial", Font.BOLD, 14));
 	    		g.setColor(Color.WHITE);
-	    		g.drawString("Connect", connectButton.x + 45, connectButton.y + 30);
+	    		DrawCenteredString(g, "Connect", connectButton.x + (connectButton.width/2), connectButton.y + 30);
 	    		if(CreateAccountHover)
 	    			g.setColor(Color.LIGHT_GRAY);
 	    		else{
@@ -979,7 +979,7 @@ public class GamePanel extends JPanel implements Runnable{
 	    		Fill(createAccountButton, g);
 	    		g.setFont(new Font("Arial", Font.BOLD, 14));
 	    		g.setColor(Color.WHITE);
-	    		g.drawString("Create account", createAccountButton.x + 20, createAccountButton.y + 30);
+	    		DrawCenteredString(g, "Create account", createAccountButton.x + (createAccountButton.width/2), createAccountButton.y + 30);
 	        }
 	        if(connect && !connected){
 	        	messagebox(g, "Attempting to connect...", Color.GRAY, Color.WHITE);
@@ -1001,7 +1001,7 @@ public class GamePanel extends JPanel implements Runnable{
         	Fill(loginBox, g);
     		g.setFont(new Font("Arial", Font.BOLD, 14));
     		g.setColor(Color.WHITE);
-    		g.drawString("Back", backButton.x + 60, backButton.y + 30);
+    		DrawCenteredString(g, "Back", backButton.x + (backButton.width/2), backButton.y + 30);
     		g.setColor(Color.LIGHT_GRAY);
         	Fill(createCode, g);
         	Fill(createUser, g);
@@ -1025,7 +1025,7 @@ public class GamePanel extends JPanel implements Runnable{
     		Fill(createButton, g);
     		g.setFont(new Font("Arial", Font.BOLD, 14));
     		g.setColor(Color.WHITE);
-    		g.drawString("Create", connectButton.x + 50, connectButton.y + 30);
+    		DrawCenteredString(g, "Create", connectButton.x + (connectButton.width/2), connectButton.y + 30);
 			break;
 		case 3:
 			if(connectionFailed){
@@ -1066,9 +1066,17 @@ public class GamePanel extends JPanel implements Runnable{
 	    			g.setColor(menuButton);
 	    		}
 				Fill(disconnectButton, g);
+				g.setFont(new Font("Arial", Font.BOLD, 14));
+				g.setColor(menuText);
+				DrawCenteredString(g, "Disconnect", disconnectButton.x + (disconnectButton.width/2), disconnectButton.y + 30);
 			}
 			break;
 		}   
+	}
+	
+	public void DrawCenteredString(Graphics g, String str, int x, int y){
+		int stringwidth = CenterString(g, str);
+		g.drawString(str, x - (stringwidth/2), y);
 	}
 	
 	public int CenterString(Graphics g, String str){
