@@ -22,3 +22,9 @@ Bug: Client doesn't receive information regarding the location and data from oth
 	Bug seems to be serverside
 	Bugfix: stripped server file from unnecessary information and merged two threads into 1
 Note: Threadception breaks stuff
+Added serverside account creation
+Bug: Server won't receive any information from client when attempting to create account
+	Bugfix: Shouldn't double boolean check on input, it's read once
+Bug: Font changes when showing debug stats.
+	Bugfix: Redefine font.
+It's now possible to disconnect from the server without closing the entire client.

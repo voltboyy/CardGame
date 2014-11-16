@@ -3,10 +3,14 @@ package cardGame;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics;
+import java.awt.HeadlessException;
 import java.awt.Image;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
@@ -47,6 +51,8 @@ public class GamePanel extends JPanel implements Runnable{
 	//This is needed for ipAdress configuration
 	private InetAddress ipAdress;
 	
+	File file = new File("C:/Users/Junior/Desktop/user.txt");
+	
 	//This is needed for screen repainting, also known as double buffering
 	private Image dbImage;
 	private Graphics dbg;
@@ -66,24 +72,35 @@ public class GamePanel extends JPanel implements Runnable{
 	
 	//Rectangles (x,y,width,height)
 	Rectangle connectButton = new Rectangle(GWIDTH - 200, GHEIGHT - 100, 150, 50);
+	Rectangle createButton = new Rectangle(GWIDTH - 200, GHEIGHT - 100, 150, 50);
+	Rectangle createAccountButton = new Rectangle(GWIDTH - 200, GHEIGHT - 175, 150, 50);
+	Rectangle backButton = new Rectangle(50, 25, 150, 50);
 	Rectangle messageBox = new Rectangle(GWIDTH/2 - 100, GHEIGHT/2 - 75, 200, 75);
 	Rectangle closeBox = new Rectangle(GWIDTH - 25, 0, 20, 20);
 	Rectangle loginBox = new Rectangle(GWIDTH/2 - 150, GHEIGHT/2 - 200, 300, 400);
 	Rectangle usernameInput = new Rectangle(loginBox.x+15, loginBox.y+80, loginBox.width-30, 30);
 	Rectangle passwordInput = new Rectangle(loginBox.x+15, loginBox.y+230, loginBox.width-30, 30);
+	Rectangle createCode = new Rectangle(loginBox.x+15, loginBox.y+50, loginBox.width-30, 30);
+	Rectangle createUser = new Rectangle(loginBox.x+15, loginBox.y+140, loginBox.width-30, 30);
+	Rectangle createPass = new Rectangle(loginBox.x+15, loginBox.y+230, loginBox.width-30, 30);
+	Rectangle createMail = new Rectangle(loginBox.x+15, loginBox.y+320, loginBox.width-30, 30);
+	Rectangle menuBox = new Rectangle(GWIDTH/2 - 150, GHEIGHT/2 - 200, 300, 400);
+	Rectangle disconnectButton = new Rectangle(menuBox.x+35, menuBox.y+320, menuBox.width-70, 50);
 	
 	//booleans
-	boolean debug = false, connect = false, connected, connectionFailed, local = false, usernameActive, passwordActive;
-	boolean pendingData;
-	boolean ConnectHover = false;
+	boolean debug = false, connect = false, connected, connectionFailed, local = false, usernameActive, passwordActive,
+			createCodeActive, createUserActive, createPassActive, createMailActive, creation = false, createConnected;
+	boolean pendingData, wantToPlay = true, clipboarded, menu;
+	boolean ConnectHover = false, CreateAccountHover = false, BackHover = false, CreateHover = false, DisconnectHover = false;
 	boolean left, down, right, up;
 	boolean capsOn = Toolkit.getDefaultToolkit().getLockingKeyState(KeyEvent.VK_CAPS_LOCK);
 
 	byte[] salt, encrpass;
 	
 	//Strings
-	String username = "", password = "", passwordshown = "", rawusername = "", rawpassword = "";
-	String usernamechars[], passwordchars[];
+	String username = "", password = "", passwordshown = "", rawusername = "", rawpassword = "", code = "", rawcode = "",
+			mail = "", rawmail = "", errormessage = "DEFAULT ERROR";
+	String usernamechars[], passwordchars[], codechars[], mailchars[];
 	String salttext, encrpasstext;
 	
 	//Global variables
@@ -92,7 +109,7 @@ public class GamePanel extends JPanel implements Runnable{
 	static DataOutputStream out;
 	
 	//Integers
-	int level = 1, count = 0, unumchars = 0, pnumchars = 0, maxchar = 20, currentKeyCode;
+	int level = 1, count = 0, unumchars = 0, pnumchars = 0, cnumchars = 0, mnumchars = 0, maxchar = 20, currentKeyCode;
 	int dataTick = 10;
 	
 	//Number of clicks
@@ -109,6 +126,15 @@ public class GamePanel extends JPanel implements Runnable{
 	int[] x = new int[100];
 	int[] y = new int[100];
 	
+	//server usernames
+	String[] usernameinput = new String[100];
+	
+	//Colors
+	Color menuBackground = new Color(255,255,255, 64);
+	Color menuButton = new Color(61,61,61, 128);
+	Color menuButtonHover = new Color(100,100,155, 128);
+	Color menuText = new Color(0,0,0, 64);
+	
 	//Main method of this class file
 	public GamePanel(){
 		
@@ -117,6 +143,8 @@ public class GamePanel extends JPanel implements Runnable{
 		
 		usernamechars = new String[maxchar];
 		passwordchars = new String[maxchar];
+		codechars = new String[maxchar];
+		mailchars = new String[maxchar+30];
 		
 		try {
 			ipAdress = InetAddress.getByName("94.226.250.203");
@@ -142,7 +170,7 @@ public class GamePanel extends JPanel implements Runnable{
 		addKeyListener(new KeyAdapter(){
 			public void keyPressed(KeyEvent e){
 				capsOn = Toolkit.getDefaultToolkit().getLockingKeyState(KeyEvent.VK_CAPS_LOCK);
-				displayInfo(e, "KEY PRESSED: ");
+				//displayInfo(e, "KEY PRESSED: ");
 				
 				if(usernameActive){
 					Username(e);
@@ -150,64 +178,61 @@ public class GamePanel extends JPanel implements Runnable{
 				if(passwordActive){
 					Password(e);
 				}
-				
+				if(createCodeActive){
+					try {
+						Code(e);
+					} catch (HeadlessException | UnsupportedFlavorException | IOException e1) {
+						e1.printStackTrace();
+					}
+				}
+				if(createUserActive){
+					Username(e);
+				}
+				if(createPassActive){
+					Password(e);
+				}
+				if(createMailActive){
+					Mail(e);
+				}
+				if(e.getKeyCode() == KeyEvent.VK_ESCAPE){
+					if(connected){
+						if(menu)
+							menu = false;
+						else
+							menu = true;
+					}
+				}
 				if(e.getKeyCode() == KeyEvent.VK_TAB){
-					if(usernameActive){
-						usernameActive = false;
-						passwordActive = true;
+					switch(level){
+					case 1:
+						if(usernameActive){
+							usernameActive = false;
+							passwordActive = true;
+						}
+						break;
+					case 2:
+						if(createCodeActive){
+							createCodeActive = false;
+							createUserActive = true;
+						}
+						else if(createUserActive){
+							createUserActive = false;
+							createPassActive = true;
+						}
+						else if(createPassActive){
+							createPassActive = false;
+							createMailActive = true;
+						}
+						break;
 					}
 				}
 				if(e.getKeyCode() == KeyEvent.VK_F1){
-					try {
-						salt = generateSalt();
-						FileOutputStream fos = new FileOutputStream("C:/Users/Junior/Desktop/ServerData/"+username+"-salt.dat");
-						fos.write(salt);
-						fos.close();
-					} catch (NoSuchAlgorithmException | IOException e1) {
-						e1.printStackTrace();
-					}
-				}
-				if(e.getKeyCode() == KeyEvent.VK_F2){
-					try {
-						byte[] saltbytes = Files.readAllBytes(Paths.get("C:/Users/Junior/Desktop/ServerData/"+username+"-salt.dat"));
-						encrpass = getEncryptedPassword(password, saltbytes);
-						FileOutputStream fos = new FileOutputStream("C:/Users/Junior/Desktop/ServerData/"+username+"-pass.dat");
-						fos.write(encrpass);
-						fos.close();
-					} catch (FileNotFoundException e2) {
-						e2.printStackTrace();
-					} catch (NoSuchAlgorithmException | InvalidKeySpecException e1) {
-						e1.printStackTrace();
-					} catch (IOException e1) {
-						e1.printStackTrace();
-					}
-					encrpasstext = new String(encrpass);
-					System.out.println(encrpass+" --> "+encrpasstext);
-				}
-				if(e.getKeyCode() == KeyEvent.VK_F3){
-					try {
-						if(authenticate(password, encrpass, salt)){
-							System.out.println("true");
-						}else
-							System.out.println("nope");
-					} catch (NoSuchAlgorithmException | InvalidKeySpecException e1) {
-						e1.printStackTrace();
-					}
-					
-				}
-				if(e.getKeyCode() == KeyEvent.VK_D && !usernameActive && !passwordActive){
 					if(debug)
 						debug = false;
 					else
 						debug = true;
 				}
-				if(e.getKeyCode() == KeyEvent.VK_C && !usernameActive && !passwordActive){
-					if(!connect){
-						connect = true;
-						Connect();
-					}
-				}
-				if(e.getKeyCode() == KeyEvent.VK_L && !usernameActive && !passwordActive){
+				if(e.getKeyCode() == KeyEvent.VK_F2){
 					if(local){
 						local = false;
 						try {
@@ -224,9 +249,13 @@ public class GamePanel extends JPanel implements Runnable{
 							System.out.println("Local key error:" + e2);
 						}
 					}
-						
 				}
-				
+				if(e.getKeyCode() == KeyEvent.VK_F3){
+										
+				}
+				if(e.getKeyCode() == KeyEvent.VK_F4){
+					
+				}
 				if(e.getKeyCode() == KeyEvent.VK_LEFT){
 					left = true;
 				}
@@ -475,6 +504,100 @@ public class GamePanel extends JPanel implements Runnable{
 					passwordshown += "* ";
 				}
 			}
+			protected void Code(KeyEvent e) throws HeadlessException, UnsupportedFlavorException, IOException{
+				int keyCode = e.getKeyCode();
+				int modifiers = e.getModifiersEx();
+				if(keyCode >= 48 && keyCode <= 90 && keyCode != 59 && keyCode !=61 && cnumchars < maxchar){ //All letters
+					if(modifiers == 64 | capsOn){ //UpperCase
+						code += KeyEvent.getKeyText(keyCode);
+						codechars[cnumchars] = KeyEvent.getKeyText(keyCode);
+						cnumchars++;
+					}else if(modifiers == 128){ //Ctrl+V
+						if(keyCode == 86){
+							String clipboard = (String) Toolkit.getDefaultToolkit().getSystemClipboard().getData(DataFlavor.stringFlavor);
+							if(clipboard.length() + cnumchars <= 20){
+								code += clipboard;
+								cnumchars += clipboard.length();
+								clipboarded = true;
+							}
+						}
+					}else{ //LowerCase
+						if(keyCode >= 48 && keyCode <= 57){
+							
+						}else{
+							rawcode = KeyEvent.getKeyText(keyCode);
+							rawcode = rawcode.toLowerCase();
+							code += rawcode;
+							codechars[cnumchars] = rawcode;
+							cnumchars++;
+						}
+					}
+				}else if(keyCode >= 96 && keyCode <= 105 && cnumchars < maxchar){ //Numpad
+					currentKeyCode = keyCode - 96;
+					code += currentKeyCode;
+					codechars[cnumchars] = ""+currentKeyCode;
+					cnumchars++;
+				}else if(keyCode == 8 && cnumchars > 0){ //Backspace
+					if(clipboarded){
+						clipboarded = false;
+						cnumchars = 0;
+						code = "";
+					}else{
+						cnumchars--;
+						code = "";
+						for(int i = 0; i < cnumchars; i++){
+							code += codechars[i];
+						}
+					}
+					
+				}
+			}
+			protected void Mail(KeyEvent e){
+				int keyCode = e.getKeyCode();
+				int modifiers = e.getModifiersEx();
+				if(keyCode >= 48 && keyCode <= 90 && keyCode != 59 && keyCode !=61 && mnumchars < maxchar+30){ //All letters
+					if(modifiers == 64 | capsOn){ //UpperCase
+						mail += KeyEvent.getKeyText(keyCode);
+						mailchars[mnumchars] = KeyEvent.getKeyText(keyCode);
+						mnumchars++;
+					}else{ //LowerCase
+						if(keyCode >= 48 && keyCode <= 57){
+							rawmail = CheckSpecialCharacter(keyCode, modifiers);
+							if(rawmail != null){
+								mail += rawmail;
+								mailchars[mnumchars] = rawmail;
+								mnumchars++;
+							}
+						}else{
+							rawmail = KeyEvent.getKeyText(keyCode);
+							rawmail = rawmail.toLowerCase();
+							mail += rawmail;
+							mailchars[mnumchars] = rawmail;
+							mnumchars++;
+						}
+					}
+				}else if(keyCode >= 96 && keyCode <= 105 && mnumchars < maxchar){ //Numpad
+					currentKeyCode = keyCode - 96;
+					mail += currentKeyCode;
+					mailchars[mnumchars] = ""+currentKeyCode;
+					mnumchars++;
+				}else if(keyCode == 8 && mnumchars > 0){ //Backspace
+					mnumchars--;
+					mail = "";
+					for(int i = 0; i < mnumchars; i++){
+						mail += mailchars[i];
+					}
+				}else{
+					if(mnumchars < maxchar){
+						rawmail = CheckSpecialCharacter(keyCode, modifiers);
+						if(rawmail != null){
+							mail += rawmail;
+							mailchars[mnumchars] = rawmail;
+							mnumchars++;
+						}
+					}	
+				}
+			}
 			
 			protected void displayInfo(KeyEvent e, String s) {
 		        String keyString, modString, tmpString, actionString, locationString;
@@ -526,42 +649,6 @@ public class GamePanel extends JPanel implements Runnable{
 		});		
 	}
 	
-	
-	public boolean authenticate(String attemptedPassword, byte[] encryptedPassword, byte[] salt) throws NoSuchAlgorithmException, InvalidKeySpecException {
-		// Encrypt the clear-text password using the same salt that was used to
-		// encrypt the original password
-		byte[] encryptedAttemptedPassword = getEncryptedPassword(attemptedPassword, salt);
-		// Authentication succeeds if encrypted password that the user entered
-		// is equal to the stored hash
-		return Arrays.equals(encryptedPassword, encryptedAttemptedPassword);
-	}
-	////This part is about encrypting the password
-	public byte[] getEncryptedPassword(String password, byte[] salt)
-	throws NoSuchAlgorithmException, InvalidKeySpecException {
-		// PBKDF2 with SHA-1 as the hashing algorithm. Note that the NIST
-		// specifically names SHA-1 as an acceptable hashing algorithm for PBKDF2
-		String algorithm = "PBKDF2WithHmacSHA1";
-		// SHA-1 generates 160 bit hashes, so that's what makes sense here
-		int derivedKeyLength = 160;
-		// Pick an iteration count that works for you. The NIST recommends at
-		// least 1,000 iterations:
-		// http://csrc.nist.gov/publications/nistpubs/800-132/nist-sp800-132.pdf
-		// iOS 4.x reportedly uses 10,000:
-		// http://blog.crackpassword.com/2010/09/smartphone-forensics-cracking-blackberry-backup-passwords/
-		int iterations = 20000;
-		KeySpec spec = new PBEKeySpec(password.toCharArray(), salt, iterations, derivedKeyLength);
-		SecretKeyFactory f = SecretKeyFactory.getInstance(algorithm);
-		return f.generateSecret(spec).getEncoded();
-	}
-	public byte[] generateSalt() throws NoSuchAlgorithmException {
-		// VERY important to use SecureRandom instead of just Random
-		SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
-		// Generate a 8 byte (64 bit) salt as recommended by RSA PKCS5
-		byte[] salt = new byte[8];
-		random.nextBytes(salt);
-		return salt;
-	}
-	
 	//This is the main method that controls how the game runs.
 	public void run(){
 		long beforeTime, afterTime, diff, sleepTime, overSleepTime = 0;
@@ -596,6 +683,7 @@ public class GamePanel extends JPanel implements Runnable{
 							out.writeInt(playerid);
 							out.writeInt(playerx);
 							out.writeInt(playery);
+							out.writeUTF(username);
 						}catch(Exception e){
 							System.out.println("Error sending Coordinates");
 						}
@@ -738,16 +826,66 @@ public class GamePanel extends JPanel implements Runnable{
 			count++;
 	}
 	
+	private void CreateAccount(){
+		try{
+			System.out.println("Connecting to " + ipAdress + " ...");
+			socket = new Socket(ipAdress,49500); //Connect to specific server using specified port
+			System.out.println("Connection succesful!");
+			in = new DataInputStream(socket.getInputStream());
+			out = new DataOutputStream(socket.getOutputStream());
+			createConnected = true;
+			System.out.println("Attempting to create acount...");
+			out.writeInt(2);
+			out.writeUTF(code);
+			System.out.println("code sent");
+			out.writeUTF(username);
+			System.out.println("username sent");
+			out.writeUTF(password);
+			System.out.println("password sent");
+			out.writeUTF(mail);
+			System.out.println("mail sent");
+			if(in.readBoolean()){
+				System.out.println("1/3");
+				if(!in.readBoolean()){
+					System.out.println("2/3");
+					if(!in.readBoolean()){
+						System.out.println("3/3");
+						creation = true;
+					}
+					else{
+						connectionFailed = true;
+						errormessage = "Username already exists.";
+					}
+				}
+				else{
+					connectionFailed = true;
+					errormessage = "Code is invalid or already used.";
+				}
+			}
+			else{
+				connectionFailed = true;
+				errormessage = "One or more fields are empty.";
+			}
+			createConnected = false;
+		}catch(Exception e){
+			System.out.println("Unable to connect to server.");
+			System.out.println(e);
+			connect = false;
+			createConnected = false;
+			connectionFailed = true;
+			errormessage = "Connection failed.";
+		}
+	}
+	
 	private void Connect(){
 		if(connect){
         	try{
-            	//InetAddress.getLocalHost().getHostAddress()
-            	//this.ipAdress = InetAddress.getByName("94.226.250.203"); //You can remove this entirely and just type the string as far as I know, just tried this for debugging
     			System.out.println("Connecting to " + ipAdress + " ...");
     			socket = new Socket(ipAdress,49500); //Connect to specific server using specified port
     			System.out.println("Connection succesful!");
     			in = new DataInputStream(socket.getInputStream());
     			out = new DataOutputStream(socket.getOutputStream());
+    			out.writeInt(1);
     			out.writeUTF(username);
     			out.writeUTF(password);
     			pnumchars = 0;
@@ -759,6 +897,7 @@ public class GamePanel extends JPanel implements Runnable{
 	    			threadinput = new Thread(input);
 	    			threadinput.start();
 	    			connected = true;
+	    			level = 4;
     			}else{
     				connect = false;
         			connectionFailed = true;
@@ -776,6 +915,15 @@ public class GamePanel extends JPanel implements Runnable{
         }
 	}
 	
+	private void Disconnect(){
+		try {
+			socket.close();
+		} catch (IOException e) {
+			System.out.println("Error when attempting to disconnect.");
+			e.printStackTrace();
+		}
+	}
+	
 	//Easier sending stuff to console
 	private void log(String s){
 		System.out.println(s);
@@ -786,12 +934,13 @@ public class GamePanel extends JPanel implements Runnable{
 		g.fillRect(box.x, box.y, box.width, box.height);
 	}
 	
-	public void messagebox(Graphics g, String str, int xoffset, int yoffset, Color box, Color text){
+	public void messagebox(Graphics g, String str, Color box, Color text){
 		g.setColor(box);
     	Fill(messageBox, g);
 		g.setFont(new Font("Arial", Font.BOLD, 14));
 		g.setColor(text);
-		g.drawString(str, messageBox.x + xoffset, messageBox.y + yoffset);
+		int stringwidth = CenterString(g, str);
+		g.drawString(str, messageBox.x + (messageBox.width/2) - (stringwidth/2), messageBox.y + 42);
 	}
 	
 	//Draws content on screen!
@@ -805,7 +954,6 @@ public class GamePanel extends JPanel implements Runnable{
 	        	Fill(loginBox, g);
 	        	g.setColor(Color.LIGHT_GRAY);
 	        	Fill(usernameInput, g);
-	        	g.setColor(Color.LIGHT_GRAY);
 	        	Fill(passwordInput, g);
 	        	g.setColor(Color.WHITE);
 	        	g.drawString(username, usernameInput.x + 5, usernameInput.y + 19);
@@ -823,32 +971,112 @@ public class GamePanel extends JPanel implements Runnable{
 	    		g.setFont(new Font("Arial", Font.BOLD, 14));
 	    		g.setColor(Color.WHITE);
 	    		g.drawString("Connect", connectButton.x + 45, connectButton.y + 30);
+	    		if(CreateAccountHover)
+	    			g.setColor(Color.LIGHT_GRAY);
+	    		else{
+	    			g.setColor(Color.GRAY);
+	    		}
+	    		Fill(createAccountButton, g);
+	    		g.setFont(new Font("Arial", Font.BOLD, 14));
+	    		g.setColor(Color.WHITE);
+	    		g.drawString("Create account", createAccountButton.x + 20, createAccountButton.y + 30);
 	        }
 	        if(connect && !connected){
-	        	messagebox(g, "Attempting to connect...", 15, 42, Color.GRAY, Color.WHITE);
+	        	messagebox(g, "Attempting to connect...", Color.GRAY, Color.WHITE);
 	        }
 	        if(connectionFailed){
-	        	messagebox(g, "Connection Failed", 28, 42, Color.GRAY, Color.RED);
+	        	messagebox(g, "Connection Failed", Color.GRAY, Color.RED);
 	    		g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
 	    		g.drawString("X", closeBox.x, closeBox.y + 20);
 	        }
-	        if(connected){
-	        	g.setColor(Color.RED);
-				for(int i = 0; i < 100; i++){
-					g.drawOval(x[i], y[i], 9, 9);
-				}
-				g.setColor(Color.GREEN);
-				g.drawOval(playerx + 2, playery + 2, 5, 5);
-	        }
 			break;
 		case 2:
+			if(BackHover)
+    			g.setColor(Color.LIGHT_GRAY);
+    		else{
+    			g.setColor(Color.GRAY);
+    		}
+    		Fill(backButton, g);
+    		g.setColor(Color.GRAY);
+        	Fill(loginBox, g);
+    		g.setFont(new Font("Arial", Font.BOLD, 14));
+    		g.setColor(Color.WHITE);
+    		g.drawString("Back", backButton.x + 60, backButton.y + 30);
+    		g.setColor(Color.LIGHT_GRAY);
+        	Fill(createCode, g);
+        	Fill(createUser, g);
+        	Fill(createPass, g);
+        	Fill(createMail, g);
+        	g.setColor(Color.WHITE);
+        	g.drawString(code, createCode.x + 5, createCode.y + 19);
+        	g.drawString(username, createUser.x + 5, createUser.y + 19);
+        	g.drawString(passwordshown, createPass.x + 5, createPass.y + 22);
+        	g.drawString(mail, createMail.x + 5, createMail.y + 19);
+        	g.setColor(Color.BLACK);
+			g.drawString("Beta Code:", createCode.x, createCode.y - 5);
+			g.drawString("Desired Username:", createUser.x, createUser.y - 5);
+			g.drawString("Password:", createPass.x, createPass.y - 5);
+			g.drawString("E-mail:", createMail.x, createMail.y - 5);
+			if(CreateHover)
+    			g.setColor(Color.LIGHT_GRAY);
+    		else{
+    			g.setColor(Color.GRAY);
+    		}
+    		Fill(createButton, g);
+    		g.setFont(new Font("Arial", Font.BOLD, 14));
+    		g.setColor(Color.WHITE);
+    		g.drawString("Create", connectButton.x + 50, connectButton.y + 30);
 			break;
-		}
-        
-        
+		case 3:
+			if(connectionFailed){
+	        	messagebox(g, errormessage, Color.GRAY, Color.RED);
+	    		g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
+	    		g.drawString("X", closeBox.x, closeBox.y + 20);
+	        }
+			if(creation){
+				messagebox(g, "Account created!", Color.GRAY, Color.RED);
+	    		g.setFont(new Font(Font.MONOSPACED, Font.BOLD, 32));
+	    		g.drawString("X", closeBox.x, closeBox.y + 20);
+			}
+			if(createConnected){
+				messagebox(g, "Attempting to create account...", Color.GRAY, Color.WHITE);
+			}
+			else{
+				//messagebox(g, "Attempting to connect...", 15, 42, Color.GRAY, Color.WHITE);
+			}
+			break;
+		case 4:
+    		g.setFont(new Font("Arial", Font.BOLD, 14));
+			g.setColor(Color.RED);
+			for(int i = 0; i < 100; i++){
+				g.drawOval(x[i], y[i], 9, 9);
+				if(!(usernameinput[i] == null)){
+					int userwidth = g.getFontMetrics().stringWidth(usernameinput[i]);
+					g.drawString(usernameinput[i], x[i]-(userwidth/2) + 5, y[i]);
+				}
+			}
+			g.setColor(Color.GREEN);
+			g.drawOval(playerx + 2, playery + 2, 5, 5);
+			if(menu){
+				g.setColor(menuBackground);
+				Fill(menuBox, g);
+				if(DisconnectHover)
+	    			g.setColor(menuButtonHover);
+	    		else{
+	    			g.setColor(menuButton);
+	    		}
+				Fill(disconnectButton, g);
+			}
+			break;
+		}   
 	}
 	
-	//Toggled by pressing the "D" key, shows some usefull values to help debugging, add as much as you want
+	public int CenterString(Graphics g, String str){
+		int stringwidth = g.getFontMetrics().stringWidth(str);
+		return stringwidth;
+	}
+	
+	//Toggled by pressing the "F2" key, shows some usefull values to help debugging, add as much as you want
 	public void drawDebug(Graphics g){
 		g.setFont(new Font("Arial", Font.PLAIN, 12));
 		g.setColor(Color.MAGENTA);
@@ -872,9 +1100,10 @@ public class GamePanel extends JPanel implements Runnable{
 	}
 	
 	//Updates the coordinates of other clients
-	public void updateCoordinates(int pid, int x2, int y2){
+	public void updateCoordinates(int pid, int x2, int y2, String usernameinput2){
 		this.x[pid] = x2;
 		this.y[pid] = y2;
+		this.usernameinput[pid] = usernameinput2;
 	}
 	
 	//Easier declaring hitboxes, really useful for creating buttons
@@ -892,16 +1121,38 @@ public class GamePanel extends JPanel implements Runnable{
 		public void mouseMoved(MouseEvent e){
 			int mx = e.getX();
 			int my = e.getY();
-			if(!connect){
-				if(hitBox(connectButton, mx, my))
-					ConnectHover = true;
+			switch(level){
+			case 1:
+				if(!connect){
+					if(hitBox(connectButton, mx, my))
+						ConnectHover = true;
+					else
+						ConnectHover = false;
+				}
+				if(!connect){
+					if(hitBox(createAccountButton, mx, my))
+						CreateAccountHover = true;
+					else
+						CreateAccountHover = false;
+				}
+				break;
+			case 2:
+				if(hitBox(backButton, mx, my))
+					BackHover = true;
 				else
-					ConnectHover = false;
+					BackHover = false;
+				if(hitBox(createButton, mx, my))
+					CreateHover = true;
+				else
+					CreateHover = false;
+				break;
+			case 4:
+				if(hitBox(disconnectButton, mx, my))
+					DisconnectHover = true;
+				else
+					DisconnectHover = false;
+				break;
 			}
-			/*if(hitBox(achievementGet, mx, my))
-				AchievementGetHover = true;
-			else
-				AchievementGetHover = false;*/
 		}
 		public void mouseDragged(MouseEvent e){
 			
@@ -920,26 +1171,86 @@ public class GamePanel extends JPanel implements Runnable{
 					clicks++;
 					requestFocusInWindow();
 			}
-			if(!connect && !connectionFailed){
-				if(hitBox(connectButton, mx, my)){
-					connect = true;
-					ConnectHover = false;
-					Connect();
+			switch(level){
+			case 1:
+				if(!connect && !connectionFailed){
+					if(hitBox(connectButton, mx, my)){
+						connect = true;
+						ConnectHover = false;
+						wantToPlay = true;
+						Connect();
+					}
 				}
-			}
-			if(connectionFailed){
-				if(hitBox(closeBox, mx, my)){
-					connectionFailed = false;
+				if(!connect && !connectionFailed){
+					if(hitBox(createAccountButton, mx, my)){
+						CreateAccountHover = false;
+						wantToPlay = false;
+						level = 2;
+					}
 				}
-			}
-			if(hitBox(usernameInput, mx, my)){
-				usernameActive = true; passwordActive = false;
-			}
-			else if(hitBox(passwordInput, mx, my)){
-				passwordActive = true; usernameActive= false;
-			}
-			else{
-				usernameActive= false; passwordActive = false;
+				if(connectionFailed){
+					if(hitBox(closeBox, mx, my)){
+						connectionFailed = false;
+					}
+				}
+				if(hitBox(usernameInput, mx, my)){
+					usernameActive = true; passwordActive = false;
+				}
+				else if(hitBox(passwordInput, mx, my)){
+					passwordActive = true; usernameActive= false;
+				}
+				else{
+					usernameActive= false; passwordActive = false;
+				}
+				break;
+			case 2:
+				if(hitBox(backButton, mx, my)){
+					BackHover = false;
+					level = 1;
+				}
+				if(hitBox(createButton, mx, my)){
+					level = 3;
+					CreateAccount();
+					CreateHover = false;
+				}
+				if(hitBox(createCode, mx, my)){
+					createCodeActive = true; createUserActive = false; createPassActive = false; createMailActive = false;
+				}
+				else if(hitBox(createUser, mx, my)){
+					createCodeActive = false; createUserActive = true; createPassActive = false; createMailActive = false;
+				}
+				else if(hitBox(createPass, mx, my)){
+					createCodeActive = false; createUserActive = false; createPassActive = true; createMailActive = false;
+				}
+				else if(hitBox(createMail, mx, my)){
+					createCodeActive = false; createUserActive = false; createPassActive = false; createMailActive = true;
+				}
+				else{
+					createCodeActive = false; createUserActive = false; createPassActive = false; createMailActive = false;
+				}
+				break;
+			case 3:
+				if(connectionFailed){
+					if(hitBox(closeBox, mx, my)){
+						connectionFailed = false;
+						level = 2;
+					}
+				}
+				if(creation){
+					if(hitBox(closeBox, mx, my)){
+						creation = false;
+						level = 1;
+					}
+				}
+				break;
+			case 4:
+				if(hitBox(disconnectButton, mx, my)){
+					Disconnect();
+					connect = false;
+					level = 1;
+					DisconnectHover = false;
+				}
+				break;
 			}
 		}
 		public void mouseReleased(MouseEvent e){
@@ -969,10 +1280,13 @@ class Input implements Runnable{
 				int playerid = in.readInt();
 				int x = in.readInt();
 				int y = in.readInt();
-				client.updateCoordinates(playerid, x, y); //This updates coordinates from other clients in gamepanel class file
+				String usernameinput = in.readUTF();
+				client.updateCoordinates(playerid, x, y, usernameinput); //This updates coordinates from other clients in gamepanel class file
 				
 			} catch (IOException e) {
-				e.printStackTrace();
+				System.out.println("Thread stopped due to closed socket.");
+				//e.printStackTrace();
+				break;
 			}
 		}
 	}
