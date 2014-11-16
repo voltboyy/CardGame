@@ -94,8 +94,6 @@ public class GamePanel extends JPanel implements Runnable{
 	boolean ConnectHover = false, CreateAccountHover = false, BackHover = false, CreateHover = false, DisconnectHover = false;
 	boolean left, down, right, up;
 	boolean capsOn = Toolkit.getDefaultToolkit().getLockingKeyState(KeyEvent.VK_CAPS_LOCK);
-
-	byte[] salt, encrpass;
 	
 	//Strings
 	String username = "", password = "", passwordshown = "", rawusername = "", rawpassword = "", code = "", rawcode = "",
@@ -158,15 +156,14 @@ public class GamePanel extends JPanel implements Runnable{
 		//load sounds
 		//hoverSound = java.applet.Applet.newAudioClip(getClass().getResource("/hover.wav"));
 		
-		
-		//basic settings
+		//Basic settings
 		setPreferredSize(panelSize);
 		setBackground(Color.DARK_GRAY);
 		setFocusable(true);
 		requestFocus(false);
 		setFocusTraversalKeysEnabled(false); //This makes sure that the tab key can be detected
 		
-		//Key presses and stuf are being tracked here
+		//Every weird thing your keyboard does is being tracked here
 		addKeyListener(new KeyAdapter(){
 			public void keyPressed(KeyEvent e){
 				capsOn = Toolkit.getDefaultToolkit().getLockingKeyState(KeyEvent.VK_CAPS_LOCK);
@@ -599,6 +596,7 @@ public class GamePanel extends JPanel implements Runnable{
 				}
 			}
 			
+			//Displays a lot of information about the key that has been pressed
 			protected void displayInfo(KeyEvent e, String s) {
 		        String keyString, modString, tmpString, actionString, locationString;
 		        int id = e.getID();
@@ -691,8 +689,6 @@ public class GamePanel extends JPanel implements Runnable{
 					
 				}
 			}
-			
-			
 			
 			//A lot of bullshit that keeps game running on same speed but possibly with slower frame rate if pc is lagging
 			beforeTime = System.nanoTime();
@@ -807,7 +803,6 @@ public class GamePanel extends JPanel implements Runnable{
             game = new Thread(this);
             game.start();
         	//probably the most essential part of this entire class file
-            
             running = true;
         }
     }
@@ -826,6 +821,7 @@ public class GamePanel extends JPanel implements Runnable{
 			count++;
 	}
 	
+	//This is called when you want to create an account and verify the data wuth the server
 	private void CreateAccount(){
 		try{
 			System.out.println("Connecting to " + ipAdress + " ...");
@@ -877,6 +873,7 @@ public class GamePanel extends JPanel implements Runnable{
 		}
 	}
 	
+	//This is called when you connect to the server and want to log in with your account
 	private void Connect(){
 		if(connect){
         	try{
@@ -885,7 +882,7 @@ public class GamePanel extends JPanel implements Runnable{
     			System.out.println("Connection succesful!");
     			in = new DataInputStream(socket.getInputStream());
     			out = new DataOutputStream(socket.getOutputStream());
-    			out.writeInt(1);
+    			out.writeInt(1); 
     			out.writeUTF(username);
     			out.writeUTF(password);
     			pnumchars = 0;
@@ -934,6 +931,7 @@ public class GamePanel extends JPanel implements Runnable{
 		g.fillRect(box.x, box.y, box.width, box.height);
 	}
 	
+	//This draws a box with your text centered in the middle
 	public void messagebox(Graphics g, String str, Color box, Color text){
 		g.setColor(box);
     	Fill(messageBox, g);
@@ -1074,17 +1072,19 @@ public class GamePanel extends JPanel implements Runnable{
 		}   
 	}
 	
+	//This draws your centered text around the given x coordinate
 	public void DrawCenteredString(Graphics g, String str, int x, int y){
 		int stringwidth = CenterString(g, str);
 		g.drawString(str, x - (stringwidth/2), y);
 	}
 	
+	//This gives you the length of the string in pixel, making it possible to center it
 	public int CenterString(Graphics g, String str){
 		int stringwidth = g.getFontMetrics().stringWidth(str);
 		return stringwidth;
 	}
 	
-	//Toggled by pressing the "F2" key, shows some usefull values to help debugging, add as much as you want
+	//Toggled by pressing the "F1" key, shows some useful values to help debugging, add as much as you want
 	public void drawDebug(Graphics g){
 		g.setFont(new Font("Arial", Font.PLAIN, 12));
 		g.setColor(Color.MAGENTA);
@@ -1103,8 +1103,6 @@ public class GamePanel extends JPanel implements Runnable{
 		g.drawString("Username: " + username, 300, GHEIGHT - 30);
 		g.drawString("Password: " + password, 300, GHEIGHT - 42);
 		g.drawString("PassShown: " + passwordshown, 300, GHEIGHT - 54);
-		//g.drawString("Saved Coord: "+world1.getSavedX()+" "+world1.getSavedY(), 0, GHEIGHT - 30);
-		//g.drawString("Count: "+count, 0, GHEIGHT - 42);
 	}
 	
 	//Updates the coordinates of other clients
@@ -1114,7 +1112,7 @@ public class GamePanel extends JPanel implements Runnable{
 		this.usernameinput[pid] = usernameinput2;
 	}
 	
-	//Easier declaring hitboxes, really useful for creating buttons
+	//Easier declaring of hitboxes, really useful for creating buttons
 	public boolean hitBox(Rectangle box, int x, int y){//This handles the detection of your cursor in rectangles, mostly buttons
 		if (x > box.x && x < box.x+box.width &&
 				y > box.y && y < box.y+box.height){
@@ -1292,7 +1290,7 @@ class Input implements Runnable{
 				client.updateCoordinates(playerid, x, y, usernameinput); //This updates coordinates from other clients in gamepanel class file
 				
 			} catch (IOException e) {
-				System.out.println("Thread stopped due to closed socket.");
+				System.out.println("Thread stopped due to closed socket."); //We want this exception to happen when you manually disconnect
 				//e.printStackTrace();
 				break;
 			}
