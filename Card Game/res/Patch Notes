@@ -28,3 +28,13 @@ Bug: Server won't receive any information from client when attempting to create 
 Bug: Font changes when showing debug stats.
 	Bugfix: Redefine font.
 It's now possible to disconnect from the server without closing the entire client.
+Added background
+Added more clarity to see in what box you're typing
+Most buttons end text boxes are see-through now, fancy isn't it? ^^
+Added basic map rendering
+Added own character rendering, no movement possible yet tho
+Added interaction with world tiles
+Bugfix: server wouldn't detect empty field when creating an account
+Bugfix: tiled map doesn't break anymore, merged drawing and loading method
+Added camera movement for debugging purposes
+Added fps counter

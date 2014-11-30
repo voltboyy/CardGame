@@ -6,17 +6,19 @@ import java.awt.Graphics;
 import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.*;
 import java.util.Scanner;
 
+import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 
 public class Main extends JFrame{
 	
 	static int //deze twee heb ik gewoon overgenomen van ander programma, kunnen we nog volledig adjusten, don't worry :p
-    GWIDTH = 32*33, //adjust second number
-	GHEIGHT = 32*24; //adjust second number
+    GWIDTH = 32*33, //adjust second number 1056
+	GHEIGHT = 32*24; //adjust second number 768
 	
 	//Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
 	//double width = screenSize.getWidth();
@@ -36,6 +38,16 @@ public class Main extends JFrame{
 
 	//Main method with some basic settings, not too hard
 	public Main() {
+		
+		//Sets icon
+		BufferedImage image = null;
+	    try {
+	        image = ImageIO.read(getClass().getClassLoader().getResource("dirt.png"));
+	    } catch (IOException e) {
+	        e.printStackTrace();
+	    }
+	    super.setIconImage(image);
+	    
 		gp = new GamePanel();
 		setTitle("Client");
 		setSize(screenSize);

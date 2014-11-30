@@ -1,12 +1,15 @@
 package cardGame;
 
+import java.applet.AudioClip;
 import java.awt.Color;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.HeadlessException;
 import java.awt.Image;
+import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.datatransfer.DataFlavor;
@@ -15,49 +18,36 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.BufferedWriter;
+import java.awt.im.InputContext;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.Writer;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.KeySpec;
-import java.sql.*;
 import java.util.Arrays;
-import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
 import javax.swing.ImageIcon;
 import javax.swing.JPanel;
 
 public class GamePanel extends JPanel implements Runnable{
 	
+	World world;
+	Camera camplayer;
+	
+	public Point mousePt;
+	
 	//This is needed for ipAdress configuration
 	private InetAddress ipAdress;
-	
-	File file = new File("C:/Users/Junior/Desktop/user.txt");
 	
 	//This is needed for screen repainting, also known as double buffering
 	private Image dbImage;
 	private Graphics dbg;
 	
-	//getting proces speed from pc
+	//getting process speed from PC
 	static long getTickCount = java.lang.System.currentTimeMillis();
 	
 	static final int GWIDTH = Main.GWIDTH, GHEIGHT = Main.GHEIGHT;
@@ -67,7 +57,7 @@ public class GamePanel extends JPanel implements Runnable{
 	private Thread game;
 	public Thread threadinput;
 	private volatile boolean running = false;
-	private long period = (long) (1*1000000); //ms -> nanoseconds
+	private long period = (long) (1*1000000); //Ms -> nanoseconds
 	private static final int DELAYS_BEFORE_YIELD = 10;
 	
 	//Rectangles (x,y,width,height)
@@ -86,6 +76,7 @@ public class GamePanel extends JPanel implements Runnable{
 	Rectangle createMail = new Rectangle(loginBox.x+15, loginBox.y+320, loginBox.width-30, 30);
 	Rectangle menuBox = new Rectangle(GWIDTH/2 - 150, GHEIGHT/2 - 200, 300, 400);
 	Rectangle disconnectButton = new Rectangle(menuBox.x+35, menuBox.y+320, menuBox.width-70, 50);
+	Rectangle Screen = new Rectangle(0, 0, GWIDTH, GHEIGHT);
 	
 	//booleans
 	boolean debug = false, connect = false, connected, connectionFailed, local = false, usernameActive, passwordActive,
@@ -94,12 +85,14 @@ public class GamePanel extends JPanel implements Runnable{
 	boolean ConnectHover = false, CreateAccountHover = false, BackHover = false, CreateHover = false, DisconnectHover = false;
 	boolean left, down, right, up;
 	boolean capsOn = Toolkit.getDefaultToolkit().getLockingKeyState(KeyEvent.VK_CAPS_LOCK);
+	boolean hoveringOverTile, leftMousePressed;
 	
 	//Strings
 	String username = "", password = "", passwordshown = "", rawusername = "", rawpassword = "", code = "", rawcode = "",
 			mail = "", rawmail = "", errormessage = "DEFAULT ERROR";
 	String usernamechars[], passwordchars[], codechars[], mailchars[];
 	String salttext, encrpasstext;
+	public String tileName;
 	
 	//Global variables
 	static Socket socket;
@@ -108,7 +101,9 @@ public class GamePanel extends JPanel implements Runnable{
 	
 	//Integers
 	int level = 1, count = 0, unumchars = 0, pnumchars = 0, cnumchars = 0, mnumchars = 0, maxchar = 20, currentKeyCode;
+	int leftClick = MouseEvent.BUTTON1, rightClick = MouseEvent.BUTTON3, hoverTileX, hoverTileY;
 	int dataTick = 10;
+	int fps;
 	
 	//Number of clicks
 	int clicks = 0;
@@ -132,6 +127,14 @@ public class GamePanel extends JPanel implements Runnable{
 	Color menuButton = new Color(61,61,61, 128);
 	Color menuButtonHover = new Color(100,100,155, 128);
 	Color menuText = new Color(0,0,0, 64);
+	Color selectedColor = new Color(242,242,242,200);
+	Color unselectedColor = new Color(202,202,202,200);
+	Color fontInputColor = new Color(142,142,142);
+	
+	//bg Images
+	Image backgroundImage;
+	
+	//AudioClip hoverSound;
 	
 	//Main method of this class file
 	public GamePanel(){
@@ -151,10 +154,14 @@ public class GamePanel extends JPanel implements Runnable{
 		}
 		
 		//Load Images
+		backgroundImage = new ImageIcon(getClass().getResource("/bg.jpg")).getImage();
 		//arrowNextIdle = new ImageIcon(getClass().getResource("/ArrowNextIdle.png")).getImage();
 		
 		//load sounds
 		//hoverSound = java.applet.Applet.newAudioClip(getClass().getResource("/hover.wav"));
+		
+		world = new World();
+		camplayer = new Camera(world);
 		
 		//Basic settings
 		setPreferredSize(panelSize);
@@ -248,10 +255,31 @@ public class GamePanel extends JPanel implements Runnable{
 					}
 				}
 				if(e.getKeyCode() == KeyEvent.VK_F3){
-										
+					InputContext context = InputContext.getInstance();  
+					System.out.println(context.getLocale().toString());  
 				}
 				if(e.getKeyCode() == KeyEvent.VK_F4){
-					
+					world.loadArrays();
+				}
+				if(e.getKeyCode() == KeyEvent.VK_ENTER){
+					switch(level){
+					case 1:
+						if(passwordActive){
+							connect = true;
+							wantToPlay = true;
+							passwordActive = false;
+							Connect();
+						}
+						break;
+					case 2:
+						if(createMailActive){
+							level = 3;
+							createMailActive = false;
+							createConnected = true;
+							CreateAccount();
+						}
+						break;
+					}
 				}
 				if(e.getKeyCode() == KeyEvent.VK_LEFT){
 					left = true;
@@ -698,6 +726,7 @@ public class GamePanel extends JPanel implements Runnable{
 			
 			afterTime = System.nanoTime();
 			diff = afterTime - beforeTime;
+			fps = (int) (diff/100000);
 			sleepTime = period - diff - overSleepTime;
 			//If the sleep time is between 0 and period, we can happily sleep ^^
 			if(sleepTime < period && sleepTime > 0){
@@ -741,6 +770,8 @@ public class GamePanel extends JPanel implements Runnable{
 	private void gameUpdate(){
 		if(game != null){ //! removed a part here, always check here for a possible fix!
 			Counter();
+			world.moveMap();
+			camplayer.update();
 			//update game state
 			//if(level == 30){
 			//world1.moveMap();
@@ -769,8 +800,12 @@ public class GamePanel extends JPanel implements Runnable{
 			}
 		}
 		//Clear the screen
-		dbg.setColor(Color.DARK_GRAY);
-		dbg.fillRect(0, 0, GWIDTH, GHEIGHT);
+		if(level != 4)
+			dbg.drawImage(backgroundImage, 0, 0, this);
+		else{
+			dbg.setColor(Color.DARK_GRAY);
+			dbg.fillRect(0, 0, GWIDTH, GHEIGHT);
+		}
 		//Draw Game elements
 		draw(dbg);
 		if(debug)
@@ -821,7 +856,12 @@ public class GamePanel extends JPanel implements Runnable{
 			count++;
 	}
 	
-	//This is called when you want to create an account and verify the data wuth the server
+	private void drawBlockOutline(Graphics g){
+		g.setColor(Color.BLACK);
+		g.drawRect(hoverTileX, hoverTileY, world.tiles[0].width, world.tiles[0].height);
+	}
+	
+	//This is called when you want to create an account and verify the data with the server
 	private void CreateAccount(){
 		try{
 			System.out.println("Connecting to " + ipAdress + " ...");
@@ -948,31 +988,41 @@ public class GamePanel extends JPanel implements Runnable{
 			g.setFont(new Font("Arial", Font.BOLD, 14));
 			g.setColor(Color.WHITE);
 	        if(!connect && !connectionFailed){
-	        	g.setColor(Color.GRAY);
+	        	g.setColor(new Color(142,142,142,100));
 	        	Fill(loginBox, g);
-	        	g.setColor(Color.LIGHT_GRAY);
+	        	if(usernameActive){
+	        		g.setColor(selectedColor);
+	        	}else{
+	        		g.setColor(unselectedColor);
+	        	}
 	        	Fill(usernameInput, g);
+	        	
+	        	if(passwordActive){
+	        		g.setColor(selectedColor);
+	        	}else{
+	        		g.setColor(unselectedColor);
+	        	}
 	        	Fill(passwordInput, g);
-	        	g.setColor(Color.WHITE);
+	        	g.setColor(fontInputColor);
 	        	g.drawString(username, usernameInput.x + 5, usernameInput.y + 19);
 	        	g.drawString(passwordshown, passwordInput.x + 5, passwordInput.y + 22);
 	        	g.setFont(new Font("Arial", Font.BOLD, 14));
-				g.setColor(Color.BLACK);
+				g.setColor(Color.WHITE);
 				g.drawString("Username:", usernameInput.x, usernameInput.y - 5);
 				g.drawString("Password:", passwordInput.x, passwordInput.y - 5);
 	    		if(ConnectHover)
-	    			g.setColor(Color.LIGHT_GRAY);
+	    			g.setColor(new Color(202,202,202,200));
 	    		else{
-	    			g.setColor(Color.GRAY);
+	    			g.setColor(new Color(142,142,142,200));
 	    		}
 	    		Fill(connectButton, g);
 	    		g.setFont(new Font("Arial", Font.BOLD, 14));
 	    		g.setColor(Color.WHITE);
 	    		DrawCenteredString(g, "Connect", connectButton.x + (connectButton.width/2), connectButton.y + 30);
 	    		if(CreateAccountHover)
-	    			g.setColor(Color.LIGHT_GRAY);
+	    			g.setColor(new Color(202,202,202,200));
 	    		else{
-	    			g.setColor(Color.GRAY);
+	    			g.setColor(new Color(142,142,142,200));
 	    		}
 	    		Fill(createAccountButton, g);
 	    		g.setFont(new Font("Arial", Font.BOLD, 14));
@@ -990,35 +1040,55 @@ public class GamePanel extends JPanel implements Runnable{
 			break;
 		case 2:
 			if(BackHover)
-    			g.setColor(Color.LIGHT_GRAY);
+    			g.setColor(new Color(202,202,202,200));
     		else{
-    			g.setColor(Color.GRAY);
+    			g.setColor(new Color(142,142,142,200));
     		}
     		Fill(backButton, g);
-    		g.setColor(Color.GRAY);
+    		g.setColor(new Color(142,142,142,100));
         	Fill(loginBox, g);
     		g.setFont(new Font("Arial", Font.BOLD, 14));
     		g.setColor(Color.WHITE);
     		DrawCenteredString(g, "Back", backButton.x + (backButton.width/2), backButton.y + 30);
     		g.setColor(Color.LIGHT_GRAY);
+    		if(createCodeActive){
+        		g.setColor(selectedColor);
+        	}else{
+        		g.setColor(unselectedColor);
+        	}
         	Fill(createCode, g);
+        	if(createUserActive){
+        		g.setColor(selectedColor);
+        	}else{
+        		g.setColor(unselectedColor);
+        	}
         	Fill(createUser, g);
+        	if(createPassActive){
+        		g.setColor(selectedColor);
+        	}else{
+        		g.setColor(unselectedColor);
+        	}
         	Fill(createPass, g);
+        	if(createMailActive){
+        		g.setColor(selectedColor);
+        	}else{
+        		g.setColor(unselectedColor);
+        	}
         	Fill(createMail, g);
-        	g.setColor(Color.WHITE);
+        	g.setColor(fontInputColor);
         	g.drawString(code, createCode.x + 5, createCode.y + 19);
         	g.drawString(username, createUser.x + 5, createUser.y + 19);
         	g.drawString(passwordshown, createPass.x + 5, createPass.y + 22);
         	g.drawString(mail, createMail.x + 5, createMail.y + 19);
-        	g.setColor(Color.BLACK);
+        	g.setColor(Color.WHITE);
 			g.drawString("Beta Code:", createCode.x, createCode.y - 5);
 			g.drawString("Desired Username:", createUser.x, createUser.y - 5);
 			g.drawString("Password:", createPass.x, createPass.y - 5);
 			g.drawString("E-mail:", createMail.x, createMail.y - 5);
 			if(CreateHover)
-    			g.setColor(Color.LIGHT_GRAY);
+				g.setColor(new Color(202,202,202,200));
     		else{
-    			g.setColor(Color.GRAY);
+    			g.setColor(new Color(142,142,142,200));
     		}
     		Fill(createButton, g);
     		g.setFont(new Font("Arial", Font.BOLD, 14));
@@ -1044,6 +1114,8 @@ public class GamePanel extends JPanel implements Runnable{
 			}
 			break;
 		case 4:
+			world.drawWorld(g);
+			camplayer.draw(g);
     		g.setFont(new Font("Arial", Font.BOLD, 14));
 			g.setColor(Color.RED);
 			for(int i = 0; i < 100; i++){
@@ -1055,6 +1127,12 @@ public class GamePanel extends JPanel implements Runnable{
 			}
 			g.setColor(Color.GREEN);
 			g.drawOval(playerx + 2, playery + 2, 5, 5);
+			if(hoveringOverTile && !menu){
+				drawBlockOutline(g);
+				g.setFont(new Font("Arial", Font.BOLD, 12));
+				g.setColor(Color.BLACK);
+				g.drawString(tileName, GWIDTH - 80, 25);
+			}
 			if(menu){
 				g.setColor(menuBackground);
 				Fill(menuBox, g);
@@ -1096,13 +1174,11 @@ public class GamePanel extends JPanel implements Runnable{
 		g.drawString("Connected: " + connected, 100, GHEIGHT - 42);
 		g.drawString("Local: " + local, 100, GHEIGHT - 54);
 		g.drawString("#username: " + unumchars, 100, GHEIGHT - 66);
-		g.drawString("usernA: " + usernameActive, 200, GHEIGHT - 30);
-		g.drawString("passwA: " + passwordActive, 200, GHEIGHT - 42);
-		g.drawString("Count: " + count, 200, GHEIGHT - 54);
-		g.drawString("Caps: " + capsOn, 200, GHEIGHT - 66);
-		g.drawString("Username: " + username, 300, GHEIGHT - 30);
-		g.drawString("Password: " + password, 300, GHEIGHT - 42);
-		g.drawString("PassShown: " + passwordshown, 300, GHEIGHT - 54);
+		g.drawString("Count: " + count, 200, GHEIGHT - 30);
+		g.drawString("Username: " + username, 200, GHEIGHT - 42);
+		g.drawString("PassShown: " + passwordshown, 200, GHEIGHT - 54);
+		g.drawString("Hover over tile: " + hoveringOverTile, 300, GHEIGHT - 30);
+		g.drawString("fps: " + fps, 300, GHEIGHT - 42);
 	}
 	
 	//Updates the coordinates of other clients
@@ -1153,6 +1229,20 @@ public class GamePanel extends JPanel implements Runnable{
 					CreateHover = false;
 				break;
 			case 4:
+				for(int i = 0; i < world.arrayNum; i++){
+					if(mx > (world.tiles[i].x + World.xOffset) && mx < (world.tiles[i].x + World.xOffset) + world.tiles[i].width &&
+						my > (world.tiles[i].y + World.yOffset) && my < (world.tiles[i].y + World.yOffset) + world.tiles[i].height &&
+						world.isSolid[i]){
+						hoveringOverTile = true;
+						hoverTileX = (world.tiles[i].x + World.xOffset);
+						hoverTileY = (world.tiles[i].y + World.yOffset);
+						tileName = world.tileName[i];
+						break;
+					}
+					else{
+						hoveringOverTile = false;
+					}
+				}
 				if(hitBox(disconnectButton, mx, my))
 					DisconnectHover = true;
 				else
@@ -1161,7 +1251,21 @@ public class GamePanel extends JPanel implements Runnable{
 			}
 		}
 		public void mouseDragged(MouseEvent e){
-			
+			switch(level){
+			case 4:
+				hoveringOverTile = false;
+				setCursor (Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
+				int dx = e.getX() - mousePt.x;
+	            int dy = e.getY() - mousePt.y;
+				world.setTiledX(world.getSavedX() + dx);
+				world.setTiledY(world.getSavedY() + dy);
+				world.setMovedX(dx);
+				world.setMovedY(dy);
+				camplayer.setCamX(dx);
+				camplayer.setCamY(dy);
+				mousePt = e.getPoint();
+				break;
+			}
 		}
 		public void mouseEntered(MouseEvent e){
 			
@@ -1216,6 +1320,7 @@ public class GamePanel extends JPanel implements Runnable{
 				}
 				if(hitBox(createButton, mx, my)){
 					level = 3;
+					createConnected = true;
 					CreateAccount();
 					CreateHover = false;
 				}
@@ -1250,17 +1355,28 @@ public class GamePanel extends JPanel implements Runnable{
 				}
 				break;
 			case 4:
-				if(hitBox(disconnectButton, mx, my)){
-					Disconnect();
-					connect = false;
-					level = 1;
-					DisconnectHover = false;
+				if(menu){
+					if(hitBox(disconnectButton, mx, my)){
+						Disconnect();
+						connect = false;
+						level = 1;
+						DisconnectHover = false;
+						menu = false;
+					}
 				}
 				break;
 			}
+			
+			if(hitBox(Screen, mx, my) && e.getButton() == leftClick){
+				leftMousePressed = true;
+			}
+			if(hitBox(Screen, mx, my)){
+				mousePt = e.getPoint();
+			}
 		}
 		public void mouseReleased(MouseEvent e){
-			
+			setCursor (Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+			leftMousePressed = false;
 		}
 		public void mouseClicked(MouseEvent e){
 			
@@ -1290,7 +1406,7 @@ class Input implements Runnable{
 				client.updateCoordinates(playerid, x, y, usernameinput); //This updates coordinates from other clients in gamepanel class file
 				
 			} catch (IOException e) {
-				System.out.println("Thread stopped due to closed socket."); //We want this exception to happen when you manually disconnect
+				System.out.println("Thread stopped due to closed socket. Normally correctly disconnected."); //We want this exception to happen when you manually disconnect
 				//e.printStackTrace();
 				break;
 			}
