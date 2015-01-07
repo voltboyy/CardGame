@@ -38,3 +38,5 @@ Bugfix: server wouldn't detect empty field when creating an account
 Bugfix: tiled map doesn't break anymore, merged drawing and loading method
 Added camera movement for debugging purposes
 Added fps counter
+Improved timer code, higher fps and will be useful in the future
+Moved data delay to server against exploits, kept a low tick timer client side for future use

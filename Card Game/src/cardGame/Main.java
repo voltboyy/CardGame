@@ -1,15 +1,8 @@
 package cardGame;
 
-import java.applet.Applet;
 import java.awt.Dimension;
-import java.awt.Graphics;
-import java.awt.Toolkit;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.net.*;
-import java.util.Scanner;
 
 import javax.imageio.ImageIO;
 import javax.swing.JFrame;

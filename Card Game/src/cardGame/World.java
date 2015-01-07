@@ -18,7 +18,7 @@ public class World {
 	
 	private Camera p1;
 	
-	public boolean loaded;
+	public boolean loaded, mousePressed;
 	
 	//Tile images
 	public Image TILE_BLACK, TILE_GRASS, TILE_EMPTY;
@@ -252,17 +252,19 @@ public class World {
 		Imagex = movedX;
 		Imagey = movedY;
 		for(int i = 0; i < arrayNum; i++){
-			if(Imagex >= widthMap){ //width of tiled map (#/32)
-            	Imagex = movedX;
-            	Imagey += 32; //height of tiles
-            }
-			if(i >= 0 && i < 10000){
-				tileImg[i] = TILE_EMPTY;
-				tiles[i] = new Rectangle(Imagex, Imagey, 32, 32);
-				isSolid[i] = true; //Normaal ni, maar dan werkt hover over tile wel
-				tileName[i] = "Empty";
+			if(!mousePressed){
+				if(Imagex >= widthMap){ //width of tiled map (#/32)
+	            	Imagex = movedX;
+	            	Imagey += 32; //height of tiles
+	            }
+				if(i >= 0 && i < 10000){
+					tileImg[i] = TILE_EMPTY;
+					tiles[i] = new Rectangle(Imagex, Imagey, 32, 32);
+					isSolid[i] = true; //Normaal ni, maar dan werkt hover over tile wel
+					tileName[i] = "Empty";
+				}
+				Imagex += 32; //width of tiles
 			}
-			Imagex += 32; //width of tiles
 			
 			g.drawImage(tileImg[i], tiles[i].x + xOffset, tiles[i].y + yOffset, null);
 			
@@ -310,6 +312,9 @@ public class World {
 	}
 	public void setMovedY(int d){
 		movedY += d;
+	}
+	public void setMousePressed(boolean d){
+		mousePressed = d;
 	}
 	public void setTiledX(int d){
 		for(Rectangle r : tiles){

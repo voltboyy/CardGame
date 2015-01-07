@@ -27,6 +27,8 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Arrays;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -133,6 +135,8 @@ public class GamePanel extends JPanel implements Runnable{
 	
 	//bg Images
 	Image backgroundImage;
+	
+	Timer t = new Timer();
 	
 	//AudioClip hoverSound;
 	
@@ -701,18 +705,10 @@ public class GamePanel extends JPanel implements Runnable{
 					playery += 1;
 				}
 				if(right || left || up || down || pendingData){ // "||" = of
-					pendingData = true;
-					if(count>dataTick){
-						count = 0;
-						pendingData = false;
-						try{
-							out.writeInt(playerid);
-							out.writeInt(playerx);
-							out.writeInt(playery);
-							out.writeUTF(username);
-						}catch(Exception e){
-							System.out.println("Error sending Coordinates");
-						}
+					
+					if(!pendingData){
+						pendingData = true;
+						DataTickTimer();
 					}
 					
 				}
@@ -769,7 +765,6 @@ public class GamePanel extends JPanel implements Runnable{
 	//This method keeps the game running.
 	private void gameUpdate(){
 		if(game != null){ //! removed a part here, always check here for a possible fix!
-			Counter();
 			world.moveMap();
 			camplayer.update();
 			//update game state
@@ -849,11 +844,21 @@ public class GamePanel extends JPanel implements Runnable{
 		}
 	}
 	
-	private void Counter(){
-		if(count >200)
-			count = 100;
-		else
-			count++;
+	public void DataTickTimer(){ //Here is declared how fast and when the random button is refilled
+		t.schedule(new TimerTask() {
+            @Override
+            public void run() {
+            	pendingData = false;
+				try{
+					out.writeInt(playerid);
+					out.writeInt(playerx);
+					out.writeInt(playery);
+					out.writeUTF(username);
+				}catch(Exception e){
+					System.out.println("Error sending Coordinates");
+				}
+            }
+        }, 1);
 	}
 	
 	private void drawBlockOutline(Graphics g){
@@ -1279,6 +1284,7 @@ public class GamePanel extends JPanel implements Runnable{
 			if(mx > 0 && mx < GWIDTH &&
 					my > 0 && my < GWIDTH){
 					clicks++;
+					world.setMousePressed(true);
 					requestFocusInWindow();
 			}
 			switch(level){
@@ -1377,6 +1383,7 @@ public class GamePanel extends JPanel implements Runnable{
 		public void mouseReleased(MouseEvent e){
 			setCursor (Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
 			leftMousePressed = false;
+			world.setMousePressed(false);
 		}
 		public void mouseClicked(MouseEvent e){
 			
@@ -1391,6 +1398,8 @@ class Input implements Runnable{
 	DataInputStream in;
 	GamePanel client;
 	
+	int playerid, x, y;
+	
 	public Input(DataInputStream in, GamePanel c){
 		this.in = in;
 		this.client = c;
@@ -1399,9 +1408,9 @@ class Input implements Runnable{
 	public void run() {
 		while(true){
 			try {
-				int playerid = in.readInt();
-				int x = in.readInt();
-				int y = in.readInt();
+				playerid = in.readInt();
+				x = in.readInt();
+				y = in.readInt();
 				String usernameinput = in.readUTF();
 				client.updateCoordinates(playerid, x, y, usernameinput); //This updates coordinates from other clients in gamepanel class file
 				
