@@ -7,21 +7,20 @@ import javax.swing.ImageIcon;
 
 public class World {
 
-	public Rectangle[] tiles;
-	private Image[] tileImg;
-	public String[] tileName;
-	public boolean[] isSolid;
-	public boolean[] noLeft, noRight, noUp, noDown, isMapMovable;
+	public Rectangle[][] tiles;
+	private Image[][] tileImg;
+	public String[][] tileName;
+	public boolean[][] isSolid;
 	public boolean unsynced;
 	//public boolean[] isHoverable;
-	public static final int arrayNum = 792; //amount of tiles on the map
+	public static final int arrayNum = 32; //amount of tiles on the map
 	
 	private Camera p1;
 	
 	public boolean loaded, mousePressed;
 	
 	//Tile images
-	public Image TILE_BLACK, TILE_GRASS, TILE_EMPTY;
+	public Image TILE_BLACK, TILE_GRASS, TILE_EMPTY, ISOTILE_DIRT, ISOTILE_GRASS;
 	
 	Rectangle RandomRectangle = new Rectangle(0, 0, 32, 32); //This is used to track the position of the map
 	
@@ -29,8 +28,9 @@ public class World {
 	movedX = 0, movedY = 0;
 	
 	public static int 
-	xOffset = 0,//33*-32, //-192
-	yOffset = 0,//38*-32,
+	xOffset = 400,//33*-32, //-192
+	yOffset = 100,//38*-32,
+	imageOffset = 26,
 	widthAmount = 33,
 	widthMap = widthAmount*32; //width of tiled map (#/32)
 	
@@ -41,15 +41,12 @@ public class World {
 		TILE_BLACK = new ImageIcon(getClass().getResource("/TILE_BLACK.png")).getImage();
 		TILE_GRASS = new ImageIcon(getClass().getResource("/TILE_GRASS.png")).getImage();
 		TILE_EMPTY = new ImageIcon(getClass().getResource("/TILE_EMPTY.png")).getImage();
-		tiles = new Rectangle[arrayNum];
-		tileImg = new Image[arrayNum];
-		tileName = new String[arrayNum];
-		isSolid = new boolean[arrayNum];
-		noLeft = new boolean[arrayNum];
-		noRight = new boolean[arrayNum];
-		noUp = new boolean[arrayNum];
-		noDown = new boolean[arrayNum];
-		isMapMovable = new boolean[arrayNum];
+		ISOTILE_DIRT = new ImageIcon(getClass().getResource("/ISOTILE_DIRT.png")).getImage();
+		ISOTILE_GRASS = new ImageIcon(getClass().getResource("/ISOTILE_GRASS.png")).getImage();
+		tiles = new Rectangle[arrayNum][arrayNum];
+		tileImg = new Image[arrayNum][arrayNum];
+		tileName = new String[arrayNum][arrayNum];
+		isSolid = new boolean[arrayNum][arrayNum];
 		
 		p1 = new Camera(this);
 		
@@ -58,247 +55,41 @@ public class World {
 		//decideMapMovable();
 	}
 	
+	//First load of the map
 	public void loadArrays(){
-		widthMap = widthAmount*32+movedX;
-		Imagex = movedX;
-		Imagey = movedY;
 		for(int i = 0; i < arrayNum; i++){
-			if(Imagex >= widthMap){ //width of tiled map (#/32)
-            	Imagex = movedX;
-            	Imagey += 32; //height of tiles
-            }
-			if(i >= 0 && i < 10000){
-				tileImg[i] = TILE_EMPTY;
-				tiles[i] = new Rectangle(Imagex, Imagey, 32, 32);
-				isSolid[i] = true; //Normaal ni, maar dan werkt hover over tile wel
-				tileName[i] = "Empty";
+			for(int j = 0; j < arrayNum; j++){
+				tileImg[i][j] = TILE_EMPTY;
+				tiles[i][j] = new Rectangle((i*16)-(j*16), (i*8)-(j*8), 32, 16);
+				isSolid[i][j] = true;
+				tileName[i][j] = "Empty";
 			}
-			if(i >= 0 && i < 10000){ //must be larger than arraynum
-				Random r = new Random();
-				
-				TreeChance = r.nextInt(100) + 1;
-				OreChance = r.nextInt(100) + 1;
-				WildLifeChance = r.nextInt(100) + 1;
-				
-				/*BlackChance = r.nextInt(50) + 1;
-				GrassChance = r.nextInt(80) + 1;
-				if(i>0 && i<10 && tileImg[i+1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>9 && i<20 && tileImg[i-widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>10 && i<20 && tileImg[i-1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>19 && i<30 && tileImg[i-widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>20 && i<30 && tileImg[i-1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>29 && i<40 && tileImg[i-widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>30 && i<40 && tileImg[i-1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>39 && i<50 && tileImg[i-widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>40 && i<50 && tileImg[i-1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>49 && i<60 && tileImg[i-widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>50 && i<60 && tileImg[i-1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>59 && i<70 && tileImg[i-widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>60 && i<70 && tileImg[i-1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>69 && i<80 && tileImg[i-widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>70 && i<80 && tileImg[i-1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>79 && i<90 && tileImg[i-widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>80 && i<90 && tileImg[i-1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>89 && i<100 && tileImg[i-widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>90 && i<100 && tileImg[i-1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(GrassChance == 1){
-					tileImg[i] = TILE_GRASS;
-				}*/
-				/*if(TreeChance <= 3){
-					tileImg[i] = TILE_WOOD;
-					isSolid[i] = true;
-					tileName[i] = "Wood";
-				}
-				else if(OreChance <= 2){
-					tileImg[i] = TILE_ORE;
-					isSolid[i] = true;
-					tileName[i] = "Stone";
-				}
-				else if(WildLifeChance <= 2){
-					tileImg[i] = TILE_WILDLIFE;
-					isSolid[i] = true;
-					tileName[i] = "Wildlife";
-				}
-				else*/
-					tileImg[i] = TILE_EMPTY;
-            	tiles[i] = new Rectangle(Imagex, Imagey, 32, 32);
-            }
-			Imagex += 32; //width of tiles
 		}
 	}
 	
-	/*private void loadArraysAgain(){
-		for(int i = 0; i < arrayNum; i++){
-			if(Imagex >= widthMap){ //width of tiled map (#/32)
-            	Imagex = 0;
-            	Imagey += 32; //height of tiles
-            }
-			if(i >= 0 && i < 100){ //must be larger than arraynum
-				Random r = new Random();
-				
-				GrassChance = r.nextInt(80) + 1;
-				if(i>0 && i<10 && tileImg[i+1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>9 && i<20 && tileImg[i+widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>10 && i<20 && tileImg[i+1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>19 && i<30 && tileImg[i+widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>20 && i<30 && tileImg[i+1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>29 && i<40 && tileImg[i+widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>30 && i<40 && tileImg[i+1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>39 && i<50 && tileImg[i+widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>40 && i<50 && tileImg[i+1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>49 && i<60 && tileImg[i+widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>50 && i<60 && tileImg[i+1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>59 && i<70 && tileImg[i+widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>60 && i<70 && tileImg[i+1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>69 && i<80 && tileImg[i+widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>70 && i<80 && tileImg[i+1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>79 && i<90 && tileImg[i+widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				else if(i>80 && i<90 && tileImg[i+1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				/*else if(i>89 && i<99 && tileImg[i+widthAmount] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-				/*else if(i>90 && i<100 && tileImg[i+1] == TILE_GRASS && GrassChance >= 20){
-					tileImg[i] = TILE_GRASS;
-				}
-            	tiles[i] = new Rectangle(Imagex, Imagey, 32, 32);
-            }
-			/*if(i == 1){
-				tileImg[i] = TILE_GRASS;
-				tiles[i] = new Rectangle(Imagex, Imagey, 32, 32);
-			}
-			Imagex += 32; //width of tiles
-		}
-	}*/
-	
 	public void drawWorld(Graphics g){
-		//33*24
-		
-		/*for(int i = 0; i < 33; i++){
-			g.drawImage(tileImg[i], tiles[i].x + xOffset, tiles[i].y + yOffset, null);
-		}*/
-		widthMap = widthAmount*32+movedX;
-		Imagex = movedX;
-		Imagey = movedY;
 		for(int i = 0; i < arrayNum; i++){
-			if(!mousePressed){
-				if(Imagex >= widthMap){ //width of tiled map (#/32)
-	            	Imagex = movedX;
-	            	Imagey += 32; //height of tiles
-	            }
-				if(i >= 0 && i < 10000){
-					tileImg[i] = TILE_EMPTY;
-					tiles[i] = new Rectangle(Imagex, Imagey, 32, 32);
-					isSolid[i] = true; //Normaal ni, maar dan werkt hover over tile wel
-					tileName[i] = "Empty";
-				}
-				Imagex += 32; //width of tiles
+			for(int j = 0; j < arrayNum; j++){
+				tileImg[i][j] = ISOTILE_GRASS;
+				tiles[i][j] = new Rectangle(j*30-i*30 + movedX, i*15+j*15 + movedY, 64, 32);
+				isSolid[i][j] = true;
+				tileName[i][j] = "Grass";
+				g.drawImage(tileImg[i][j], tiles[i][j].x + xOffset, tiles[i][j].y + yOffset, null);
 			}
-			
-			g.drawImage(tileImg[i], tiles[i].x + xOffset, tiles[i].y + yOffset, null);
-			
 		}
 	}
 	
 	public void moveMap(){
-		for(Rectangle r : tiles){
+		/*for(Rectangle r : tiles){
 			/*r.x += 32*xDirection;
-			r.y += 32*yDirection;*/
+			r.y += 32*yDirection;
 			//collision();
 			r.x += xDirection;
 			r.y += yDirection;
-		}
+		}*/
 		RandomRectangle.x += xDirection;
 		RandomRectangle.y += yDirection;
 		//System.out.println(RandomRectangle.x + " " + RandomRectangle.y);
-	}
-	public boolean testgrid(){
-		unsynced = false;
-		int combined;
-		boolean sync;
-		for(int i = 0; i < arrayNum; i++){
-			if(tiles[i].x != 0 && tiles[i].y != 0 && i != 0){
-				combined = tiles[i-1].x + tiles[i].y;
-				sync = combined % 32 == 0;
-				if(!sync){
-					unsynced = true;
-					//System.out.println(tiles[i-1].x%tiles[i].y);
-				}
-			}
-			
-		}
-		return unsynced;
 	}
 	
 	public int getSavedX(){
@@ -313,10 +104,16 @@ public class World {
 	public void setMovedY(int d){
 		movedY += d;
 	}
+	public int getMovedX(){
+		return movedX;
+	}
+	public int getMovedY(){
+		return movedY;
+	}
 	public void setMousePressed(boolean d){
 		mousePressed = d;
 	}
-	public void setTiledX(int d){
+	/*public void setTiledX(int d){
 		for(Rectangle r : tiles){
 			r.x += d;
 		}
@@ -325,7 +122,7 @@ public class World {
 		for(Rectangle r : tiles){
 			r.y += d;
 		}
-	}
+	}*/
 	public void setSavedX(int d){
 		RandomRectangle.x = d;
 	}
@@ -381,10 +178,10 @@ public class World {
 		}
 	}
 	
-	public void destroyTile(int tileNum){
+	/*public void destroyTile(int tileNum){
 		tiles[tileNum] = new Rectangle(-10000, -10000, 0, 0);//place where tile gets stored
 		isSolid[tileNum] = false;//Still have to adjust to leave solid stuff behind
-	}
+	}*/
 	
 }
 

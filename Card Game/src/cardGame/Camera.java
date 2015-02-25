@@ -17,7 +17,7 @@ public class Camera {
 	
 	protected int xDirection, yDirection;
 	
-	private int xCharacter = 32*16, yCharacter = 32*11; //Do not change! this is location of character in the middle of the screen
+	private int xCharacter = 32*16-4, yCharacter = 32*11; //Do not change! this is location of character in the middle of the screen
 	
 	public int up = 0, down = 0, left = 0, right = 0, leftMovable = 0, rightMovable = 0, upMovable = 0, downMovable = 0, movable, playerTexture = 2,
 			upRight = 0, downRight = 0, downLeft = 0, upLeft = 0;
@@ -141,6 +141,12 @@ public class Camera {
 	public void setCamY(int d){
 		playerRect.y += d;
 	}
+	public int getCamX(){
+		return playerRect.x;
+	}
+	public int getCamY(){
+		return playerRect.y;
+	}
 	
 	public void update(){
 		move();
@@ -167,7 +173,7 @@ public class Camera {
 		rightRect.y += 32*yDirection;
 	}
 	
-	private void collision(){
+	/*private void collision(){
 		for(int i = 0; i < world.arrayNum; i++){
             if(world.isSolid[i] && upRect.intersects(world.tiles[i].x + World.xOffset, world.tiles[i].y + World.yOffset, world.tiles[i].width, world.tiles[i].height)){
             	world.setYDirection(0);
@@ -232,10 +238,10 @@ public class Camera {
             }
             /*if(collision == false){
             	System.out.println("false");
-            }*/
+            }
             
         }
-    }
+    }*/
 	
 	private void checkForCollision(){
 		
@@ -254,17 +260,17 @@ public class Camera {
 		if(getPlayerTexture() == 3){
 			g.drawImage(playerImg3, playerRect.x, playerRect.y, null);
 		}
-		if(hovering)
+		/*if(hovering)
 			drawBlockOutline(g);
 		g.setColor(Color.RED);
 		g.fillRect(upRightCornerRect.x, upRightCornerRect.y, upRightCornerRect.width, upRightCornerRect.height);
 		g.fillRect(downRightCornerRect.x, downRightCornerRect.y, downRightCornerRect.width, downRightCornerRect.height);
 		g.fillRect(downLeftCornerRect.x, downLeftCornerRect.y, downLeftCornerRect.width, downLeftCornerRect.height);
-		g.fillRect(upLeftCornerRect.x, upLeftCornerRect.y, upLeftCornerRect.width, upLeftCornerRect.height);
+		g.fillRect(upLeftCornerRect.x, upLeftCornerRect.y, upLeftCornerRect.width, upLeftCornerRect.height);*/
 	}
 	private void drawBlockOutline(Graphics g){
 		g.setColor(Color.BLACK);
-		g.drawRect(hoverX, hoverY, world.tiles[0].width, world.tiles[0].height);
+		g.drawRect(hoverX, hoverY, world.tiles[0][0].width, world.tiles[0][0].height);
 	}
 	
 	//Mouse events
@@ -275,7 +281,7 @@ public class Camera {
 		int py = playerRect.y;
 		int leftClick = MouseEvent.BUTTON1;
 		int rightClick = MouseEvent.BUTTON3;
-		for(int i = 0; i < world.arrayNum; i++){
+		/*for(int i = 0; i < world.arrayNum; i++){
 			if(e.getButton() == leftClick){
 				if(weapon.isEquipped(weapon.HAMMER) &&
 						x > (world.tiles[i].x + World.xOffset) && x < (world.tiles[i].x + World.xOffset) + world.tiles[i].width &&
@@ -291,7 +297,7 @@ public class Camera {
 			else if(e.getButton() == rightClick){
 				
 			}
-		}
+		}*/
 	}
 	public void mouseReleased(MouseEvent e){
 		
@@ -302,21 +308,23 @@ public class Camera {
 		int px = playerRect.x;
 		int py = playerRect.y;
 		for(int i = 0; i < world.arrayNum; i++){
-			if(weapon.isEquipped(weapon.HAMMER) &&
-				x > (world.tiles[i].x + World.xOffset) && x < (world.tiles[i].x + World.xOffset) + world.tiles[i].width &&
-				y > (world.tiles[i].y + World.yOffset) && y < (world.tiles[i].y + World.yOffset) + world.tiles[i].height &&
-				world.isSolid[i] &&
-				((world.tiles[i].x + World.xOffset) + (world.tiles[i].width/2)) <= (px + (playerRect.width/2)) + weapon.WEAPON_RADIUS && 
-				((world.tiles[i].x + World.xOffset) + (world.tiles[i].width/2)) >= (px + (playerRect.width/2)) - weapon.WEAPON_RADIUS && 
-				((world.tiles[i].y + World.yOffset) + (world.tiles[i].height/2)) <= (py + (playerRect.height/2)) + weapon.WEAPON_RADIUS && 
-				((world.tiles[i].y + World.yOffset) + (world.tiles[i].height/2)) >= (py + (playerRect.height/2)) - weapon.WEAPON_RADIUS){
-				hovering = true;
-				hoverX = (world.tiles[i].x + World.xOffset);
-				hoverY = (world.tiles[i].y + World.yOffset);
-				break;
-			}
-			else{
-				hovering = false;
+			for(int j = 0; j < world.arrayNum; j++){
+				if(weapon.isEquipped(weapon.HAMMER) &&
+						x > (world.tiles[i][j].x + World.xOffset) && x < (world.tiles[i][j].x + World.xOffset) + world.tiles[i][j].width &&
+						y > (world.tiles[i][j].y + World.yOffset) && y < (world.tiles[i][j].y + World.yOffset) + world.tiles[i][j].height &&
+						world.isSolid[i][j] &&
+						((world.tiles[i][j].x + World.xOffset) + (world.tiles[i][j].width/2)) <= (px + (playerRect.width/2)) + weapon.WEAPON_RADIUS && 
+						((world.tiles[i][j].x + World.xOffset) + (world.tiles[i][j].width/2)) >= (px + (playerRect.width/2)) - weapon.WEAPON_RADIUS && 
+						((world.tiles[i][j].y + World.yOffset) + (world.tiles[i][j].height/2)) <= (py + (playerRect.height/2)) + weapon.WEAPON_RADIUS && 
+						((world.tiles[i][j].y + World.yOffset) + (world.tiles[i][j].height/2)) >= (py + (playerRect.height/2)) - weapon.WEAPON_RADIUS){
+						hovering = true;
+						hoverX = (world.tiles[i][j].x + World.xOffset);
+						hoverY = (world.tiles[i][j].y + World.yOffset);
+						break;
+					}
+					else{
+						hovering = false;
+					}
 			}
 		}
 	}

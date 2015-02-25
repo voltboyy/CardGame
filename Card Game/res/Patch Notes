@@ -40,3 +40,11 @@ Added camera movement for debugging purposes
 Added fps counter
 Improved timer code, higher fps and will be useful in the future
 Moved data delay to server against exploits, kept a low tick timer client side for future use
+Set client side timer to same delay as serverside to avoid a queue of incoming updates, still needs testing with WAN clients
+Rewritten world render code for future isometric and server side map
+Changed the map to an isometric map with correct rendering of the tiles
+Rewritten tile hover detection because of new isometric shapes
+Bug: fps is inaccurate, sort of opposite
+Added basic character stats defined in new class file
+Bug: When client comes across an unknown error while connecting it doesn't disconnect until client is closed.
+Added first HUD pieces (Health, etc)

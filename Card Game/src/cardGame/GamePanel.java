@@ -10,35 +10,50 @@ import java.awt.Graphics;
 import java.awt.HeadlessException;
 import java.awt.Image;
 import java.awt.Point;
+import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
+import java.awt.color.CMMException;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.geom.Area;
 import java.awt.im.InputContext;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.Arrays;
+import java.util.Scanner;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
+import javax.sound.sampled.FloatControl;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.ImageIcon;
 import javax.swing.JPanel;
+import javax.swing.plaf.basic.BasicInternalFrameTitlePane.MoveAction;
 
 public class GamePanel extends JPanel implements Runnable{
 	
 	World world;
 	Camera camplayer;
+	Stats stats;
+	Chat chat;
 	
 	public Point mousePt;
 	
@@ -54,6 +69,8 @@ public class GamePanel extends JPanel implements Runnable{
 	
 	static final int GWIDTH = Main.GWIDTH, GHEIGHT = Main.GHEIGHT;
 	static final Dimension panelSize = new Dimension(GWIDTH, GHEIGHT);
+	
+	TimerTask movePlayer;
 	
 	//All variables that makes the game run good and smoothly, just ignore
 	private Thread game;
@@ -83,17 +100,19 @@ public class GamePanel extends JPanel implements Runnable{
 	//booleans
 	boolean debug = false, connect = false, connected, connectionFailed, local = false, usernameActive, passwordActive,
 			createCodeActive, createUserActive, createPassActive, createMailActive, creation = false, createConnected;
-	boolean pendingData, wantToPlay = true, clipboarded, menu;
+	boolean pendingData, wantToPlay = true, clipboarded, menu, fpsUpdate = true;
 	boolean ConnectHover = false, CreateAccountHover = false, BackHover = false, CreateHover = false, DisconnectHover = false;
 	boolean left, down, right, up;
 	boolean capsOn = Toolkit.getDefaultToolkit().getLockingKeyState(KeyEvent.VK_CAPS_LOCK);
-	boolean hoveringOverTile, leftMousePressed;
+	boolean hoveringOverTile, leftMousePressed, charWalking;
+	boolean [] isOnline = new boolean[100];
 	
 	//Strings
 	String username = "", password = "", passwordshown = "", rawusername = "", rawpassword = "", code = "", rawcode = "",
-			mail = "", rawmail = "", errormessage = "DEFAULT ERROR";
-	String usernamechars[], passwordchars[], codechars[], mailchars[];
+			mail = "", rawmail = "", errormessage = "DEFAULT ERROR", rawstats = "";
+	String[] usernamechars, passwordchars, codechars, mailchars;
 	String salttext, encrpasstext;
+	private String serverURL = "94.226.250.203"; //94.226.250.203 or 2a02:181f:1:267:1c20:ca18:7ea5:c9e8
 	public String tileName;
 	
 	//Global variables
@@ -116,6 +135,7 @@ public class GamePanel extends JPanel implements Runnable{
 	//local coordinates
 	int playerx;
 	int playery;
+	int destX, destY;
 	
 	//server coordinates van andere ids
 	int[] x = new int[100];
@@ -136,9 +156,16 @@ public class GamePanel extends JPanel implements Runnable{
 	//bg Images
 	Image backgroundImage;
 	
+	//Images
+	public Image ISOTILE_SELECTED;
+	
 	Timer t = new Timer();
 	
-	//AudioClip hoverSound;
+	Clip clip;
+	
+	//AudioClips
+	URL mainMenu;
+	URL click;
 	
 	//Main method of this class file
 	public GamePanel(){
@@ -152,19 +179,26 @@ public class GamePanel extends JPanel implements Runnable{
 		mailchars = new String[maxchar+30];
 		
 		try {
-			ipAdress = InetAddress.getByName("94.226.250.203");
+			ipAdress = InetAddress.getByName(serverURL);
 		} catch (UnknownHostException e1) {
 			System.out.println("Error first ip launch: " + e1);
 		}
 		
 		//Load Images
 		backgroundImage = new ImageIcon(getClass().getResource("/bg.jpg")).getImage();
+		ISOTILE_SELECTED = new ImageIcon(getClass().getResource("/ISOTILE_SELECTED.png")).getImage();
 		//arrowNextIdle = new ImageIcon(getClass().getResource("/ArrowNextIdle.png")).getImage();
 		
 		//load sounds
 		//hoverSound = java.applet.Applet.newAudioClip(getClass().getResource("/hover.wav"));
+		mainMenu = getClass().getResource("/mainMenu.wav");
+		click =  getClass().getResource("/click.wav");
+		
+		PlaySound(mainMenu);
 		
 		world = new World();
+		stats = new Stats();
+		chat = new Chat();
 		camplayer = new Camera(world);
 		
 		//Basic settings
@@ -175,6 +209,7 @@ public class GamePanel extends JPanel implements Runnable{
 		setFocusTraversalKeysEnabled(false); //This makes sure that the tab key can be detected
 		
 		//Every weird thing your keyboard does is being tracked here
+		addKeyListener(chat);
 		addKeyListener(new KeyAdapter(){
 			public void keyPressed(KeyEvent e){
 				capsOn = Toolkit.getDefaultToolkit().getLockingKeyState(KeyEvent.VK_CAPS_LOCK);
@@ -203,11 +238,18 @@ public class GamePanel extends JPanel implements Runnable{
 					Mail(e);
 				}
 				if(e.getKeyCode() == KeyEvent.VK_ESCAPE){
+					if(connectionFailed){
+						connectionFailed = false;
+					}
 					if(connected){
-						if(menu)
+						if(menu){
+							chat.setCanChat(true);
 							menu = false;
-						else
+						}
+						else{
+							chat.setCanChat(false);
 							menu = true;
+						}
 					}
 				}
 				if(e.getKeyCode() == KeyEvent.VK_TAB){
@@ -244,7 +286,7 @@ public class GamePanel extends JPanel implements Runnable{
 					if(local){
 						local = false;
 						try {
-							ipAdress = InetAddress.getByName("94.226.250.203");
+							ipAdress = InetAddress.getByName(serverURL);
 						} catch (UnknownHostException e1) {
 							System.out.println("Local key error:" + e1);
 						}
@@ -296,6 +338,10 @@ public class GamePanel extends JPanel implements Runnable{
 				}
 				if(e.getKeyCode() == KeyEvent.VK_DOWN){
 					down = true;
+				}
+				if(e.getKeyCode() == KeyEvent.VK_S){
+					destX = GWIDTH/2;
+					destY = GHEIGHT/2;
 				}
 			}
 			
@@ -722,7 +768,11 @@ public class GamePanel extends JPanel implements Runnable{
 			
 			afterTime = System.nanoTime();
 			diff = afterTime - beforeTime;
-			fps = (int) (diff/100000);
+			if(fpsUpdate){
+				fps = (int) (diff/100000);
+				FpsUpdateTimer();
+				fpsUpdate = false;
+			}
 			sleepTime = period - diff - overSleepTime;
 			//If the sleep time is between 0 and period, we can happily sleep ^^
 			if(sleepTime < period && sleepTime > 0){
@@ -765,8 +815,9 @@ public class GamePanel extends JPanel implements Runnable{
 	//This method keeps the game running.
 	private void gameUpdate(){
 		if(game != null){ //! removed a part here, always check here for a possible fix!
-			world.moveMap();
+			//world.moveMap();
 			camplayer.update();
+			stats.UpdateStats();
 			//update game state
 			//if(level == 30){
 			//world1.moveMap();
@@ -803,6 +854,10 @@ public class GamePanel extends JPanel implements Runnable{
 		}
 		//Draw Game elements
 		draw(dbg);
+		if(level == 4){
+			stats.Draw(dbg);
+			chat.Draw(dbg);
+		}
 		if(debug)
 			drawDebug(dbg);
 	}
@@ -844,7 +899,25 @@ public class GamePanel extends JPanel implements Runnable{
 		}
 	}
 	
-	public void DataTickTimer(){ //Here is declared how fast and when the random button is refilled
+	public void PlaySound(URL url){
+		try {
+			AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(url);
+			clip = AudioSystem.getClip();
+			clip.open(audioInputStream);
+			FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
+			gainControl.setValue(-10.0f); // Reduce volume by # decibels.
+			clip.start();
+		} catch (LineUnavailableException | IOException | UnsupportedAudioFileException e3) {
+			e3.printStackTrace();
+		}
+		if (clip.isRunning())
+	        clip.stop();   // Stop the player if it is still running
+	    clip.setFramePosition(0); // rewind to the beginning
+	    clip.start();     // Start playing
+
+	}
+	
+	public void DataTickTimer(){
 		t.schedule(new TimerTask() {
             @Override
             public void run() {
@@ -858,12 +931,84 @@ public class GamePanel extends JPanel implements Runnable{
 					System.out.println("Error sending Coordinates");
 				}
             }
-        }, 1);
+        }, 10);
 	}
 	
-	private void drawBlockOutline(Graphics g){
-		g.setColor(Color.BLACK);
-		g.drawRect(hoverTileX, hoverTileY, world.tiles[0].width, world.tiles[0].height);
+	//Timer for fps update
+	public void FpsUpdateTimer(){
+		t.schedule(new TimerTask() {
+            @Override
+            public void run() {
+            	fpsUpdate = true;
+            }
+        }, 1000);
+	}
+	
+	public void MoveCharacter(){
+		
+		t.schedule(new TimerTask() {
+            @Override
+            public void run() {
+        		
+        		int speed = 5;
+        		int targetX = destX;
+        		int targetY = destY;
+        		int X = GWIDTH/2;
+        		int Y = GHEIGHT/2;
+
+        		double movementX=0;
+    		    double movementY=0;
+    		    
+        		// Player is not standing on the target
+    		    //targetX != X || targetY != Y
+        		if (targetX > X+2 || targetY > Y+2 || targetX < X-2 || targetY < Y-2) {
+
+        			charWalking = true;
+        			
+        		    // Get the vector between the player and the target
+        		    int pathX = targetX - X;
+        		    int pathY = targetY - Y;
+        		    
+        		    System.out.println(pathY);
+
+        		    // Calculate the unit vector of the path
+        		    double distance = Math.sqrt(pathX * pathX + pathY * pathY);
+        		    double directionX = pathX / distance;
+        		    double directionY = pathY / distance;
+
+        		    // Calculate the actual walk amount
+        		    movementX = directionX * speed;
+        		    movementY = directionY * speed;
+
+        		    // Move the player
+        		    X = (int)movementX;
+        		    Y = (int)movementY;
+        		    world.setMovedX(-X);
+        		    destX -= X;
+        		    world.setMovedY(-Y);
+        		    destY -= Y;
+        		    
+        		    if(pathY < 0 && Math.abs(pathY)>Math.abs(pathX))
+        		    	camplayer.setPlayerTexture(0);
+        		    else if(pathX > 0 && pathX>Math.abs(pathY))
+        		    	camplayer.setPlayerTexture(1);
+        		    else if(pathY > 0 && pathY>Math.abs(pathX))
+        		    	camplayer.setPlayerTexture(2);
+        		    else if(pathX < 0 && Math.abs(pathX)>Math.abs(pathY))
+        		    	camplayer.setPlayerTexture(3);
+        		    
+        		    MoveCharacter();
+        		    
+        		}else{
+        			charWalking = false;
+        			//camplayer.setPlayerTexture(2);
+        		}
+            }}, 10);
+	}
+	
+	//Draws the outline of a tile, this is called when you hover over a tile
+	private void drawTileOutline(Graphics g){
+		g.drawImage(ISOTILE_SELECTED, hoverTileX-1, hoverTileY, this);
 	}
 	
 	//This is called when you want to create an account and verify the data with the server
@@ -934,12 +1079,18 @@ public class GamePanel extends JPanel implements Runnable{
     			password = "";
     			passwordshown = "";
     			if(in.readBoolean()){
+    				rawstats = in.readUTF();
     				playerid = in.readInt();
 	    			Input input = new Input(in, this);
 	    			threadinput = new Thread(input);
 	    			threadinput.start();
+	    			System.out.println(rawstats);
+	    			stats.SetRawStats(rawstats);
+	    			stats.ProcessStats();
 	    			connected = true;
 	    			level = 4;
+	    			chat.setCanChat(true);
+	    			clip.stop();
     			}else{
     				connect = false;
         			connectionFailed = true;
@@ -948,6 +1099,7 @@ public class GamePanel extends JPanel implements Runnable{
     		}catch(Exception e){
     			System.out.println("Unable to start client");
     			System.out.println(e);
+    			e.printStackTrace();
     			connect = false;
     			connectionFailed = true;
     			pnumchars = 0;
@@ -957,6 +1109,7 @@ public class GamePanel extends JPanel implements Runnable{
         }
 	}
 	
+	//Disconnects you from the server
 	private void Disconnect(){
 		try {
 			socket.close();
@@ -1124,16 +1277,18 @@ public class GamePanel extends JPanel implements Runnable{
     		g.setFont(new Font("Arial", Font.BOLD, 14));
 			g.setColor(Color.RED);
 			for(int i = 0; i < 100; i++){
-				g.drawOval(x[i], y[i], 9, 9);
-				if(!(usernameinput[i] == null)){
-					int userwidth = g.getFontMetrics().stringWidth(usernameinput[i]);
-					g.drawString(usernameinput[i], x[i]-(userwidth/2) + 5, y[i]);
+				if(isOnline[i]){
+					g.drawOval(x[i], y[i], 9, 9);
+					if(!(usernameinput[i] == null)){
+						int userwidth = g.getFontMetrics().stringWidth(usernameinput[i]);
+						g.drawString(usernameinput[i], x[i]-(userwidth/2) + 5, y[i]);
+					}
 				}
 			}
 			g.setColor(Color.GREEN);
 			g.drawOval(playerx + 2, playery + 2, 5, 5);
 			if(hoveringOverTile && !menu){
-				drawBlockOutline(g);
+				drawTileOutline(g);
 				g.setFont(new Font("Arial", Font.BOLD, 12));
 				g.setColor(Color.BLACK);
 				g.drawString(tileName, GWIDTH - 80, 25);
@@ -1179,18 +1334,25 @@ public class GamePanel extends JPanel implements Runnable{
 		g.drawString("Connected: " + connected, 100, GHEIGHT - 42);
 		g.drawString("Local: " + local, 100, GHEIGHT - 54);
 		g.drawString("#username: " + unumchars, 100, GHEIGHT - 66);
-		g.drawString("Count: " + count, 200, GHEIGHT - 30);
+		g.drawString("x y: " + hoverTileX +" "+ hoverTileY , 200, GHEIGHT - 30);
 		g.drawString("Username: " + username, 200, GHEIGHT - 42);
 		g.drawString("PassShown: " + passwordshown, 200, GHEIGHT - 54);
 		g.drawString("Hover over tile: " + hoveringOverTile, 300, GHEIGHT - 30);
 		g.drawString("fps: " + fps, 300, GHEIGHT - 42);
+		g.drawString("dest: " + destX + " " + destY, 300, GHEIGHT - 54);
 	}
 	
 	//Updates the coordinates of other clients
-	public void updateCoordinates(int pid, int x2, int y2, String usernameinput2){
-		this.x[pid] = x2;
-		this.y[pid] = y2;
-		this.usernameinput[pid] = usernameinput2;
+	public void updateCoordinates(boolean bool, int pid, int x2, int y2, String usernameinput2){
+		if(pid<=100){
+			this.isOnline[pid] = bool;
+			this.x[pid] = x2;
+			this.y[pid] = y2;
+			this.usernameinput[pid] = usernameinput2;
+		}
+		else{
+			System.out.println("Received invalid pid, skipping this update. ("+pid+")");
+		}
 	}
 	
 	//Easier declaring of hitboxes, really useful for creating buttons
@@ -1234,19 +1396,26 @@ public class GamePanel extends JPanel implements Runnable{
 					CreateHover = false;
 				break;
 			case 4:
+				//Detects if you hover over specific tile
 				for(int i = 0; i < world.arrayNum; i++){
-					if(mx > (world.tiles[i].x + World.xOffset) && mx < (world.tiles[i].x + World.xOffset) + world.tiles[i].width &&
-						my > (world.tiles[i].y + World.yOffset) && my < (world.tiles[i].y + World.yOffset) + world.tiles[i].height &&
-						world.isSolid[i]){
-						hoveringOverTile = true;
-						hoverTileX = (world.tiles[i].x + World.xOffset);
-						hoverTileY = (world.tiles[i].y + World.yOffset);
-						tileName = world.tileName[i];
+					for(int j = 0; j < world.arrayNum; j++){
+						Area iso;
+						int[] xIso = {world.tiles[i][j].x + World.xOffset + 30,world.tiles[i][j].x + World.xOffset + 60,world.tiles[i][j].x + World.xOffset + 30,world.tiles[i][j].x + World.xOffset};
+				        int[] yIso = {world.tiles[i][j].y + World.yOffset + World.imageOffset,world.tiles[i][j].y + World.yOffset + World.imageOffset + 15,world.tiles[i][j].y + World.yOffset + World.imageOffset + 30,world.tiles[i][j].y + World.yOffset + World.imageOffset + 15};
+				        iso = new Area(new Polygon(xIso, yIso, 4));
+				        if(iso.contains(mx, my)){
+				        	hoveringOverTile = true;
+				        	hoverTileX = (world.tiles[i][j].x + World.xOffset);
+							hoverTileY = (world.tiles[i][j].y + World.yOffset + World.imageOffset); //32 is because of square image with height 64
+							tileName = world.tileName[i][j];
+				        	break;
+				        }
+				        else{
+							hoveringOverTile = false;
+						}
+					}
+					if(hoveringOverTile)
 						break;
-					}
-					else{
-						hoveringOverTile = false;
-					}
 				}
 				if(hitBox(disconnectButton, mx, my))
 					DisconnectHover = true;
@@ -1258,17 +1427,19 @@ public class GamePanel extends JPanel implements Runnable{
 		public void mouseDragged(MouseEvent e){
 			switch(level){
 			case 4:
-				hoveringOverTile = false;
-				setCursor (Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
-				int dx = e.getX() - mousePt.x;
-	            int dy = e.getY() - mousePt.y;
-				world.setTiledX(world.getSavedX() + dx);
-				world.setTiledY(world.getSavedY() + dy);
-				world.setMovedX(dx);
-				world.setMovedY(dy);
-				camplayer.setCamX(dx);
-				camplayer.setCamY(dy);
-				mousePt = e.getPoint();
+				if(leftMousePressed){
+					hoveringOverTile = false;
+					setCursor (Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
+					int dx = e.getX() - mousePt.x;
+		            int dy = e.getY() - mousePt.y;
+					//world.setTiledX(world.getSavedX() + dx);
+					//world.setTiledY(world.getSavedY() + dy);
+					world.setMovedX(dx);
+					world.setMovedY(dy);
+					camplayer.setCamX(dx);
+					camplayer.setCamY(dy);
+					mousePt = e.getPoint();
+				}
 				break;
 			}
 		}
@@ -1369,6 +1540,11 @@ public class GamePanel extends JPanel implements Runnable{
 						DisconnectHover = false;
 						menu = false;
 					}
+				}else{
+					destX = mx;
+					destY = my;
+					if(!charWalking)
+						MoveCharacter();
 				}
 				break;
 			}
@@ -1397,8 +1573,10 @@ class Input implements Runnable{
 
 	DataInputStream in;
 	GamePanel client;
+	Stats stats;
 	
 	int playerid, x, y;
+	boolean isOnline;
 	
 	public Input(DataInputStream in, GamePanel c){
 		this.in = in;
@@ -1409,10 +1587,11 @@ class Input implements Runnable{
 		while(true){
 			try {
 				playerid = in.readInt();
+				isOnline = in.readBoolean();
 				x = in.readInt();
 				y = in.readInt();
 				String usernameinput = in.readUTF();
-				client.updateCoordinates(playerid, x, y, usernameinput); //This updates coordinates from other clients in gamepanel class file
+				client.updateCoordinates(isOnline, playerid, x, y, usernameinput); //This updates coordinates from other clients in gamepanel class file
 				
 			} catch (IOException e) {
 				System.out.println("Thread stopped due to closed socket. Normally correctly disconnected."); //We want this exception to happen when you manually disconnect
